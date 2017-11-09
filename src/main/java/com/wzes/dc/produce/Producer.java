@@ -3,6 +3,7 @@ package com.wzes.dc.produce;
 import com.wzes.dc.bean.Task;
 import com.wzes.dc.service.TaskQueue;
 import com.wzes.dc.util.BytesUtils;
+import com.wzes.dc.util.GzipUtils;
 
 import java.io.*;
 
@@ -12,12 +13,21 @@ import java.io.*;
  */
 public class Producer {
 
+    /**
+     * the name of produce file
+     */
     public static final String PRODUCE_FILENAME = "produce.bin";
-    public static final int NUM_SIZE = 1024;
-    public static final int BLOCK_SIZE = 512;
 
-    public static final int MAX_NUM = 2014 * 512;
-    public static final int TIMES = 256;
+    private static final int NUM_SIZE = 1024;
+
+    /**
+     * the size of writting to file everytime
+     */
+    private static final int BLOCK_SIZE = 64;
+
+    private static final int MAX_NUM = 2014 * 512;
+
+    private static final int TIMES = 256;
 
     public Producer() {
 
@@ -52,15 +62,14 @@ public class Producer {
                     dev++;
                     if(i % BLOCK_SIZE == 0) {
                         dev = 0;
-                        bufferedOutputStream.write(numbers);
-                        int len = NUM_SIZE*BLOCK_SIZE;
+                        // compress
+                        byte[] compressData = GzipUtils.compress(numbers);
+                        bufferedOutputStream.write(compressData);
+                        int len = compressData.length;
                         Task task = new Task(s, len);
                         s += len;
                         TaskQueue.getInstance().addTask(task);
                     }
-                    //bufferedOutputStream.write(numbers);
-                    //System.out.println(GzipUtils.compress(numbers).length);
-                    //break;
                 }
                 TaskQueue.getInstance().setProduceEnd(true);
                 long end = System.currentTimeMillis();

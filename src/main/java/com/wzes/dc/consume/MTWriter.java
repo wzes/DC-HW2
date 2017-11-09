@@ -1,5 +1,6 @@
 package com.wzes.dc.consume;
 
+import com.sun.jmx.snmp.tasks.ThreadService;
 import com.wzes.dc.bean.Task;
 import com.wzes.dc.produce.Producer;
 import com.wzes.dc.service.TaskQueue;
@@ -8,7 +9,6 @@ import com.wzes.dc.util.BytesUtils;
 import java.io.*;
 import java.util.concurrent.*;
 
-import com.google.common.util.concurrent.ThreadFactoryBuilder;
 
 import static com.wzes.dc.produce.Producer.*;
 
@@ -20,8 +20,9 @@ public class MTWriter {
 
     public static final String WRITE_FILENAME = "write.bin";
     private long length = 0;
-    private int threadNumber = 4;
-
+    private int threadNumber = 8;
+    private final int READ_SIZE = 1024 * 8;
+    private final CountDownLatch countDownLatch = new CountDownLatch(threadNumber);
     public MTWriter() {
 
     }
@@ -50,7 +51,9 @@ public class MTWriter {
                 e.printStackTrace();
             }
         }
-
+        long s = System.currentTimeMillis();
+        ExecutorService executorService = Executors.newFixedThreadPool(threadNumber);
+        // calculate time
         for(int index = 0; index < threadNumber; index++) {
             RandomAccessFile readFile = null;
             RandomAccessFile randomAccessFile = null;
@@ -64,8 +67,18 @@ public class MTWriter {
                 e.printStackTrace();
             }
             ReadThread readThread = new ReadThread(randomAccessFile, readFile);
-            readThread.start();
+            executorService.execute(readThread);
+
         }
+        executorService.shutdown();
+        try {
+            countDownLatch.await();
+        } catch (InterruptedException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+        long e = System.currentTimeMillis();
+        System.out.println(Thread.currentThread().toString() + " Total Time: " +  (e - s) + " ms");
     }
 
     public long getFileLength() {
@@ -81,24 +94,9 @@ public class MTWriter {
     }
 
     public static void main(String[] args) {
-//        new Thread(new Runnable() {
-//            @Override
-//            public void run() {
-//                Producer producer = new Producer();
-//                producer.writeToFile(PRODUCE_FILENAME);
-//            }
-//        }).start();
 
-        ThreadFactory namedThreadFactory = new ThreadFactory() {
-            @Override
-            public Thread newThread(Runnable r) {
-                return null;
-            }
-        };
-
-        ExecutorService singleThreadPool = new ThreadPoolExecutor(1, 1,
-                0L, TimeUnit.MILLISECONDS,
-                new LinkedBlockingQueue<Runnable>(1024), namedThreadFactory, new ThreadPoolExecutor.AbortPolicy());
+        // 单线程池
+        ExecutorService singleThreadPool = Executors.newSingleThreadExecutor();
 
         singleThreadPool.execute(new Runnable() {
             @Override
@@ -136,25 +134,15 @@ public class MTWriter {
     class ReadThread extends Thread {
         RandomAccessFile endFile;
         RandomAccessFile randomAccessFile;
-        Long start;
-        Long end;
 
         ReadThread(RandomAccessFile endFile, RandomAccessFile randomAccessFile) {
             this.endFile = endFile;
             this.randomAccessFile = randomAccessFile;
         }
 
-        ReadThread(RandomAccessFile endFile, RandomAccessFile randomAccessFile, Long start, Long end) {
-            this.endFile = endFile;
-            this.randomAccessFile = randomAccessFile;
-            this.start = start;
-            this.end = end;
-        }
-
         @Override
         public void run() {
             try {
-                long s = System.currentTimeMillis();
                 while (true) {
                     if(TaskQueue.getInstance().isQueueEmpty() && TaskQueue.getInstance().isProduceEnd()) {
                         break;
@@ -163,39 +151,33 @@ public class MTWriter {
                     if(task != null) {
                         Long start = task.getStart();
                         int length = task.getLength();
-                        // System.out.println(start + "   " + length);
                         randomAccessFile.seek(start);
                         // read data
-                        byte[] bytes = new byte[length];
-                        randomAccessFile.read(bytes);
-                        // write to file
                         endFile.setLength(getFileLength());
                         endFile.seek(start);
-                        endFile.write(bytes);
-                    }
-                    try {
-                        Thread.sleep(10);
-                    } catch (InterruptedException e) {
-                        e.printStackTrace();
+                        // read data according to the file size
+                        if(length >= READ_SIZE) {
+                            // write to file
+                            for(int index = 0; index < length; index += READ_SIZE) {
+                                byte[] bytes = new byte[READ_SIZE];
+                                randomAccessFile.read(bytes);
+                                endFile.write(bytes);
+                            }
+                        }else {
+                            byte[] bytes = new byte[length];
+                            randomAccessFile.read(bytes);
+                            endFile.write(bytes);
+                        }
                     }
                 }
-//                System.out.println(end - start);
-
-//                for(int index = 0; index < end - start; index += 256*4 ) {
-//                    Long read = randomAccessFile.length();
-//                    System.out.println(read);
-
-                    // System.out.println(BytesUtils.byteArrayToInt(bytes));
-                    // System.out.println(bytes.length);
-//                }
-                long e = System.currentTimeMillis();
                 randomAccessFile.close();
                 endFile.close();
-                System.out.println(Thread.currentThread().toString() + " Total Time: " +  (e - s) + " ms");
             } catch (FileNotFoundException e) {
                 e.printStackTrace();
             } catch (IOException e) {
                 e.printStackTrace();
+            } finally {
+                countDownLatch.countDown();
             }
             super.run();
         }
