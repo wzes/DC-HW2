@@ -96,36 +96,43 @@ public class MTWriter {
     public static void main(String[] args) {
 
         // 单线程池
-        ExecutorService singleThreadPool = Executors.newSingleThreadExecutor();
-
-        singleThreadPool.execute(new Runnable() {
-            @Override
-            public void run() {
-                Producer producer = new Producer();
-                producer.writeToFile(PRODUCE_FILENAME);
-            }
-        });
-        singleThreadPool.shutdown();
-
-
-        MTWriter mtWriter = new MTWriter();
-        mtWriter.writeData(WRITE_FILENAME);
-
-//        try {
-//            FileInputStream fileInputStream = new FileInputStream(new File(PRODUCE_FILENAME));
-//            BufferedInputStream bufferedInputStream = new BufferedInputStream(fileInputStream);
-//            byte[] bytes = new byte[4];
-//            int read;
-//            while(bufferedInputStream.read(bytes) != -1) {
-//                System.out.println(BytesUtils.byteArrayToInt(bytes));
+//        ExecutorService singleThreadPool = Executors.newSingleThreadExecutor();
+//
+//        singleThreadPool.execute(new Runnable() {
+//            @Override
+//            public void run() {
+//                Producer producer = new Producer();
+//                producer.writeToFile(PRODUCE_FILENAME);
 //            }
+//        });
+//        singleThreadPool.shutdown();
 //
 //
-//        } catch (FileNotFoundException e) {
-//            e.printStackTrace();
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
+//        MTWriter mtWriter = new MTWriter();
+//        mtWriter.writeData(WRITE_FILENAME);
+
+        try {
+            FileInputStream fileInputStream = new FileInputStream(new File("test"));
+            BufferedInputStream bufferedInputStream = new BufferedInputStream(fileInputStream);
+            byte[] bytes = new byte[4];
+            int read;
+            Long index = 1L;
+            while(bufferedInputStream.read(bytes) != -1) {
+                if(index%256 == 0) {
+                    System.out.println(BytesUtils.byteArrayToInt(bytes));
+                }
+                index++;
+                if(index > 256* 100) {
+                    break;
+                }
+            }
+
+
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
 
 
     }
