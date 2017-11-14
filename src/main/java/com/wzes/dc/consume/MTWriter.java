@@ -1,10 +1,9 @@
 package com.wzes.dc.consume;
 
-import com.sun.jmx.snmp.tasks.ThreadService;
 import com.wzes.dc.bean.Task;
 import com.wzes.dc.produce.Producer;
 import com.wzes.dc.service.TaskQueue;
-import com.wzes.dc.util.BytesUtils;
+import com.wzes.dc.util.BufferedRandomAccessFile;
 
 import java.io.*;
 import java.util.concurrent.*;
@@ -20,8 +19,10 @@ public class MTWriter {
 
     public static final String WRITE_FILENAME = "write.bin";
     private long length = 0;
-    private int threadNumber = 8;
+    private static int threadNumber = 1;
     private final int READ_SIZE = 1024 * 8;
+    private static final int INT_SIZE = 3;
+
     private final CountDownLatch countDownLatch = new CountDownLatch(threadNumber);
     public MTWriter() {
 
@@ -32,7 +33,7 @@ public class MTWriter {
         this.threadNumber = threadNumber;
     }
 
-    public void writeData(String filename) {
+    public void readAndWriteData(String filename) {
         final File file = new File(PRODUCE_FILENAME);
         if(!file.exists()) {
             try {
@@ -66,7 +67,7 @@ public class MTWriter {
             } catch (IOException e) {
                 e.printStackTrace();
             }
-            ReadThread readThread = new ReadThread(randomAccessFile, readFile);
+            ReadAndWriteThread readThread = new ReadAndWriteThread(randomAccessFile, readFile);
             executorService.execute(readThread);
 
         }
@@ -81,7 +82,9 @@ public class MTWriter {
         System.out.println(Thread.currentThread().toString() + " Total Time: " +  (e - s) + " ms");
     }
 
-    public long getFileLength() {
+
+
+    private long getFileLength() {
         final File file = new File(PRODUCE_FILENAME);
         if(!file.exists()) {
             try {
@@ -102,47 +105,112 @@ public class MTWriter {
 //            @Override
 //            public void run() {
 //                Producer producer = new Producer();
-//                producer.writeToFile(PRODUCE_FILENAME);
+//                producer.writeByBufferedOutput(PRODUCE_FILENAME);
 //            }
 //        });
 //        singleThreadPool.shutdown();
-//
-//
-//        MTWriter mtWriter = new MTWriter();
-//        mtWriter.writeData(WRITE_FILENAME);
+        for (int i = 1; i <= 32; i *= 2 ) {
+            System.out.println("Thread num : " + threadNumber);
+            long start = System.currentTimeMillis();
+            Producer producer = new Producer();
+            producer.writeByBufferedRandom(PRODUCE_FILENAME);
+            long pro_end = System.currentTimeMillis();
+            System.out.println("    " + Thread.currentThread().toString() + " Produce over: " +  (pro_end - start) + " ms");
+            // System.out.println(Thread.currentThread().toString() + " Produce Time: " +  (e1 - s) + " ms");
+            MTWriter mtWriter = new MTWriter();
+            mtWriter.WriteAfterReadData(WRITE_FILENAME);
+            long end = System.currentTimeMillis();
+            System.out.println("    " + Thread.currentThread().toString() + " Write over: " +  (end - pro_end) + " ms");
+            System.out.println("    " + Thread.currentThread().toString() + " Total Time: " +  (end - start) + " ms");
 
-        try {
-            FileInputStream fileInputStream = new FileInputStream(new File("test"));
-            BufferedInputStream bufferedInputStream = new BufferedInputStream(fileInputStream);
-            byte[] bytes = new byte[4];
-            int read;
-            Long index = 1L;
-            while(bufferedInputStream.read(bytes) != -1) {
-                if(index%256 == 0) {
-                    System.out.println(BytesUtils.byteArrayToInt(bytes));
-                }
-                index++;
-                if(index > 256* 100) {
-                    break;
-                }
+            threadNumber *= 2;
+        }
+
+//        try {
+//            FileInputStream fileInputStream = new FileInputStream(new File("test"));
+//            BufferedInputStream bufferedInputStream = new BufferedInputStream(fileInputStream);
+//            byte[] bytes = new byte[4];
+//            int read;
+//            Long index = 1L;
+//            while(bufferedInputStream.read(bytes) != -1) {
+//                if(index%256 == 0) {
+//                    System.out.println(BytesUtils.byteArrayToInt(bytes));
+//                }
+//                index++;
+//                if(index > 256* 100) {
+//                    break;
+//                }
+//            }
+//
+//
+//        } catch (FileNotFoundException e) {
+//            e.printStackTrace();
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
+    }
+    public void WriteAfterReadData(String filename) {
+
+        final File file = new File(PRODUCE_FILENAME);
+        if(!file.exists()) {
+            try {
+                file.createNewFile();
+            } catch (IOException e) {
+                e.printStackTrace();
             }
-
-
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
         }
 
 
+        final File endFile = new File(filename);
+        if(!endFile.exists()) {
+            try {
+                endFile.createNewFile();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+        Long totalSize = getFileLength();
+        Long sliceSize = totalSize / threadNumber;
+
+        //long s = System.currentTimeMillis();
+        ExecutorService executorService = Executors.newFixedThreadPool(threadNumber);
+        // calculate time
+        for(int index = 0; index < threadNumber; index++) {
+            BufferedRandomAccessFile readFile = null;
+            BufferedRandomAccessFile writeFile = null;
+            try {
+                readFile = new BufferedRandomAccessFile(PRODUCE_FILENAME, "r");
+                writeFile = new BufferedRandomAccessFile(filename, "rw", 10);
+                writeFile.setLength(totalSize);
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            WriteAfterReadThread readThread = new WriteAfterReadThread(writeFile, readFile, index * sliceSize, sliceSize);
+            executorService.execute(readThread);
+
+        }
+        executorService.shutdown();
+        try {
+            countDownLatch.await();
+        } catch (InterruptedException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+        //long e = System.currentTimeMillis();
+        //System.out.println(Thread.currentThread().toString() + " Write over: " +  (e - s) + " ms");
     }
 
-
-    class ReadThread extends Thread {
+    /**
+     * read and write thread
+     */
+    class ReadAndWriteThread extends Thread {
         RandomAccessFile endFile;
         RandomAccessFile randomAccessFile;
 
-        ReadThread(RandomAccessFile endFile, RandomAccessFile randomAccessFile) {
+        ReadAndWriteThread(RandomAccessFile endFile, RandomAccessFile randomAccessFile) {
             this.endFile = endFile;
             this.randomAccessFile = randomAccessFile;
         }
@@ -179,6 +247,51 @@ public class MTWriter {
                 }
                 randomAccessFile.close();
                 endFile.close();
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+            } finally {
+                countDownLatch.countDown();
+            }
+            super.run();
+        }
+    }
+
+
+    /**
+     * read and write thread
+     */
+    class WriteAfterReadThread extends Thread {
+        BufferedRandomAccessFile writeFile;
+        BufferedRandomAccessFile readFile;
+        Long startPosition;
+        Long length;
+
+
+        WriteAfterReadThread(BufferedRandomAccessFile writeFile, BufferedRandomAccessFile readFile,
+                             Long startPosition, Long length) {
+            this.writeFile = writeFile;
+            this.readFile = readFile;
+            this.startPosition = startPosition;
+            this.length = length;
+        }
+
+        @Override
+        public void run() {
+            try {
+                readFile.seek(startPosition);
+                // read data
+                writeFile.seek(startPosition);
+                // read data according to the file size
+                // write to file
+                for(int index = 0; index < length; index += READ_SIZE) {
+                    byte[] bytes = new byte[READ_SIZE];
+                    readFile.read(bytes);
+                    writeFile.write(bytes);
+                }
+                readFile.close();
+                writeFile.close();
             } catch (FileNotFoundException e) {
                 e.printStackTrace();
             } catch (IOException e) {

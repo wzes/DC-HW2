@@ -22,4 +22,28 @@ public class BytesUtils {
                 (byte) (a & 0xFF)
         };
     }
+
+    //byte 数组与 int 的相互转换
+    public static int threeByteArrayToInt(byte[] b) {
+        return   b[2] & 0xFF |
+                (b[1] & 0xFF) << 8 |
+                (b[0] & 0xFF) << 16 ;
+    }
+
+    public static byte[] intToThreeByteArray(int a) {
+        return new byte[] {
+                (byte) ((a >> 16) & 0xFF),
+                (byte) ((a >> 8) & 0xFF),
+                (byte) (a & 0xFF)
+        };
+    }
+
+    public static void main(String[] args) {
+        int a = 1024*512;
+        System.out.println(Math.pow(2, 16));
+        byte[] bytes = intToThreeByteArray(a);
+
+        int i = threeByteArrayToInt(bytes);
+        System.out.println(i);
+    }
 }
