@@ -26,7 +26,7 @@ public class Producer {
     /**
      * the size of writting to file everytime
      */
-    private static final int BLOCK_SIZE = 256;
+    private static final int BLOCK_SIZE = 128;
 
     private static final int MAX_NUM = 2014 * 512;
 
@@ -42,7 +42,7 @@ public class Producer {
      * produce data and write it to file
      * @param filename the filename of des file
      */
-    public void writeToFile(String filename) {
+    public void writeToFileByCompress(String filename) {
         FileOutputStream fileOutputStream;
         BufferedOutputStream bufferedOutputStream = null;
         DataOutputStream dataOutputStream = null;
@@ -54,13 +54,13 @@ public class Producer {
                 dataOutputStream = new DataOutputStream(fileOutputStream);
                 bufferedOutputStream = new BufferedOutputStream(dataOutputStream);
                 // calculate time
-                long start = System.currentTimeMillis();
+                // long start = System.currentTimeMillis();
                 int dev = 0;
-                Long s = 0L;
+                // Long s = 0L;
                 for(int i = 1; i <= MAX_NUM; i++) {
                     byte[] bytes = BytesUtils.intToByteArray(i);
                     for( int j = 0; j < TIMES; j++) {
-                        System.arraycopy(bytes, 0, numbers, j * INT_SIZE + dev*NUM_SIZE, INT_SIZE);
+                        System.arraycopy(bytes, 0, numbers, j * INT_SIZE + dev * INT_SIZE * BLOCK_SIZE, INT_SIZE);
                     }
                     dev++;
                     if(i % BLOCK_SIZE == 0) {
@@ -68,18 +68,18 @@ public class Producer {
                         // compress
                         byte[] compressData = GzipUtils.compress(numbers);
                         bufferedOutputStream.write(compressData);
-                        int len = compressData.length;
+                        //int len = compressData.length;
                         // new task
-                        Task task = new Task(s, len);
-                        s += len;
+                        // Task task = new Task(s, len);
+                        // s += len;
                         // add task to queue
-                        TaskQueue.getInstance().addTask(task);
+                        // TaskQueue.getInstance().addTask(task);
                     }
                 }
-                TaskQueue.getInstance().setProduceEnd(true);
-                long end = System.currentTimeMillis();
+                // TaskQueue.getInstance().setProduceEnd(true);
+                // long end = System.currentTimeMillis();
                 // print total time
-                System.out.println("produce over ! total time: " +  (end - start) + " ms");
+                // System.out.println("produce over ! total time: " +  (end - start) + " ms");
             } catch (FileNotFoundException e) {
                 e.printStackTrace();
             } catch (IOException e) {
