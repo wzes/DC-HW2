@@ -14,7 +14,7 @@ import java.net.URI;
  */
 public class HDWriter {
     public static final String PRODUCE_FILENAME = "produce.zip";
-    private static final String OUT_PATH = "hdfs://192.168.1.107:9000/test/out.zip";
+    private static final String OUT_PATH = "hdfs://192.168.10.16:9000/tmp/test.zip";
 
     public static void main(String[] args) {
         try {
@@ -51,9 +51,11 @@ public class HDWriter {
         FileSystem fileSystem = FileSystem.get(URI.create(hdfs), config);
         // get file input stream
         FileInputStream fileInputStream = new FileInputStream(new File(local));
+
         BufferedInputStream bufferedInputStream = new BufferedInputStream(fileInputStream);
         FSDataOutputStream fsDataOutputStream = fileSystem.create(new Path(hdfs));
         IOUtils.copyBytes(bufferedInputStream, fsDataOutputStream, 4096, true);
+
         fileInputStream.close();
         fsDataOutputStream.close();
         bufferedInputStream.close();

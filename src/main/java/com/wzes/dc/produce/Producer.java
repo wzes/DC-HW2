@@ -94,14 +94,17 @@ public class Producer {
     }
 
     public static void main(String[] args) {
+        long start = System.currentTimeMillis();
         Producer producer = new Producer();
         //producer.writeByBufferedOutput("test");
-        producer.writeByBufferedRandom("test");
+        producer.writeByBufferedWrite(PRODUCE_FILENAME);
+        long end = System.currentTimeMillis();
+        // print total time
+        System.out.println("produce over ! total time: " +  (end - start) + " ms");
     }
 
 
     public void writeByBufferedOutput(String filename) {
-        long start = System.currentTimeMillis();
         FileOutputStream fileOutputStream;
         BufferedOutputStream bufferedOutputStream = null;
         DataOutputStream dataOutputStream = null;
@@ -127,11 +130,7 @@ public class Producer {
                 e.printStackTrace();
             }finally {
                 bufferedOutputStream.flush();
-
                 bufferedOutputStream.close();
-                long end = System.currentTimeMillis();
-                // print total time
-                System.out.println("produce over ! total time: " +  (end - start) + " ms");
             }
         }catch (Exception e) {
             System.out.println(e.getMessage());
@@ -144,32 +143,16 @@ public class Producer {
      * @param filename
      */
     public void writeByBufferedRandom(String filename) {
-        //long start = System.currentTimeMillis();
-        // FileOutputStream fileOutputStream = null;
         BufferedRandomAccessFile bufferedRandomAccessFile = null;
-        // RandomAccessFile randomAccessFile = null;
         FileChannel fileChannel = null;
-        byte[] numbers = new byte[TIMES * INT_SIZE];
-        File file = new File(filename);
-
-        if(!file.exists()) {
-            try {
-                file.createNewFile();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
+        //byte[] numbers = new byte[TIMES * INT_SIZE];
         try {
-            bufferedRandomAccessFile = new BufferedRandomAccessFile(PRODUCE_FILENAME, "rw", 10);
+            bufferedRandomAccessFile = new BufferedRandomAccessFile(filename, "rw", 10);
             fileChannel = bufferedRandomAccessFile.getChannel();
-            //fileChannel = randomAccessFile.getChannel();
-            //fileOutputStream = new FileOutputStream(file);
-            //fileChannel = fileOutputStream.getChannel();
-            //Long s = 0L;
-            //ByteBuffer byteBuffer = ByteBuffer.allocate(NUM_SIZE);
             MappedByteBuffer mbbo = fileChannel.map(FileChannel.MapMode.READ_WRITE, 0, MAX_NUM*TIMES*INT_SIZE);
             for(int i = 1; i <= MAX_NUM; i++) {
-                //　使用函数会变慢　byte[] bytes = BytesUtils.intToThreeByteArray(i);
+                //　使用函数会变慢　
+                //byte[] bytes = BytesUtils.intToThreeByteArray(i);
                 // 一个int对应三位byte
                 byte one = (byte) ((i >> 16) & 0xFF);
                 byte two = (byte) ((i >> 8) & 0xFF);

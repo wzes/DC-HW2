@@ -5,30 +5,34 @@ import com.wzes.dc.produce.Producer;
 import com.wzes.dc.service.TaskQueue;
 import com.wzes.dc.util.BufferedRandomAccessFile;
 
-import java.io.*;
-import java.util.concurrent.*;
+import java.io.File;
+import java.io.FileNotFoundException;
+import java.io.IOException;
+import java.io.RandomAccessFile;
+import java.util.concurrent.CountDownLatch;
+import java.util.concurrent.ExecutorService;
+import java.util.concurrent.Executors;
 
-
-import static com.wzes.dc.produce.Producer.*;
+import static com.wzes.dc.produce.Producer.PRODUCE_FILENAME;
 
 /**
  * @author Create by xuantang
  * @date on 11/6/17
  */
-public class MTWriter {
+public class MTNormalWriter {
 
-    public static final String WRITE_FILENAME = "/d1/write.bin";
+    public static final String WRITE_FILENAME = "write.bin";
     private long length = 0;
     private static int threadNumber = 1;
     private final int READ_SIZE = 1024 * 8;
     private static final int INT_SIZE = 3;
 
     private final CountDownLatch countDownLatch = new CountDownLatch(threadNumber);
-    public MTWriter() {
+    public MTNormalWriter() {
 
     }
 
-    public MTWriter(int length, int threadNumber) {
+    public MTNormalWriter(int length, int threadNumber) {
         this.length = length;
         this.threadNumber = threadNumber;
     }
@@ -117,7 +121,7 @@ public class MTWriter {
             long pro_end = System.currentTimeMillis();
             System.out.println("    " + Thread.currentThread().toString() + " Produce over: " +  (pro_end - start) + " ms");
             // System.out.println(Thread.currentThread().toString() + " Produce Time: " +  (e1 - s) + " ms");
-            MTWriter mtWriter = new MTWriter();
+            MTNormalWriter mtWriter = new MTNormalWriter();
             mtWriter.WriteAfterReadData(WRITE_FILENAME);
             long end = System.currentTimeMillis();
             System.out.println("    " + Thread.currentThread().toString() + " Write over: " +  (end - pro_end) + " ms");
@@ -177,11 +181,11 @@ public class MTWriter {
         ExecutorService executorService = Executors.newFixedThreadPool(threadNumber);
         // calculate time
         for(int index = 0; index < threadNumber; index++) {
-            BufferedRandomAccessFile readFile = null;
-            BufferedRandomAccessFile writeFile = null;
+            RandomAccessFile readFile = null;
+            RandomAccessFile writeFile = null;
             try {
-                readFile = new BufferedRandomAccessFile(PRODUCE_FILENAME, "r");
-                writeFile = new BufferedRandomAccessFile(filename, "rw", 10);
+                readFile = new RandomAccessFile(PRODUCE_FILENAME, "r");
+                writeFile = new RandomAccessFile(filename, "rw");
                 writeFile.setLength(totalSize);
             } catch (FileNotFoundException e) {
                 e.printStackTrace();
@@ -263,13 +267,13 @@ public class MTWriter {
      * read and write thread
      */
     class WriteAfterReadThread extends Thread {
-        BufferedRandomAccessFile writeFile;
-        BufferedRandomAccessFile readFile;
+        RandomAccessFile writeFile;
+        RandomAccessFile readFile;
         Long startPosition;
         Long length;
 
 
-        WriteAfterReadThread(BufferedRandomAccessFile writeFile, BufferedRandomAccessFile readFile,
+        WriteAfterReadThread(RandomAccessFile writeFile, RandomAccessFile readFile,
                              Long startPosition, Long length) {
             this.writeFile = writeFile;
             this.readFile = readFile;
