@@ -19,7 +19,7 @@ public class Producer {
     /**
      * the name of produce file
      */
-    public static final String PRODUCE_FILENAME = "produce.bin";
+    public static final String PRODUCE_FILENAME = "produce.dat";
 
     private static final int NUM_SIZE = 1024;
 
@@ -103,6 +103,17 @@ public class Producer {
         System.out.println("produce over ! total time: " +  (end - start) + " ms");
     }
 
+    public static long getFileLength(String filename) {
+        final File file = new File(filename);
+        if(!file.exists()) {
+            try {
+                file.createNewFile();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        return file.length();
+    }
 
     public void writeByBufferedOutput(String filename) {
         FileOutputStream fileOutputStream;
@@ -190,23 +201,16 @@ public class Producer {
             }
             fileChannel.close();
             bufferedRandomAccessFile.close();
-            //randomAccessFile.close();
-            //bufferedRandomAccessFile.close();
-            //TaskQueue.getInstance().setProduceEnd(true);
 
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
         }
-        // end = System.currentTimeMillis();
-        // print total time
-        //System.out.println(Thread.currentThread().toString() + " Produce over: " +  (end - start) + " ms");
     }
 
 
     public void writeByBufferedWrite(String filename) {
-        //long start = System.currentTimeMillis();
         OutputStreamWriter outputStreamWriter = null;
         BufferedWriter bufferedWriter = null;
         byte[] numbers = new byte[TIMES * INT_SIZE];
@@ -235,8 +239,5 @@ public class Producer {
         } catch (IOException e) {
             e.printStackTrace();
         }
-        // end = System.currentTimeMillis();
-        // print total time
-        //System.out.println(Thread.currentThread().toString() + " Produce over: " +  (end - start) + " ms");
     }
 }
