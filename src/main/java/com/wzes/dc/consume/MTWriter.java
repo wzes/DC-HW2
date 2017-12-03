@@ -26,72 +26,14 @@ public class MTWriter {
 
     }
 
-    public void readAndWriteData(String filename) {
-        final File file = new File(PRODUCE_FILENAME);
-        if(!file.exists()) {
-            try {
-                file.createNewFile();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-
-
-        final File endFile = new File(filename);
-        if(!endFile.exists()) {
-            try {
-                endFile.createNewFile();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-        long s = System.currentTimeMillis();
-        ExecutorService executorService = Executors.newFixedThreadPool(threadNumber);
-        // calculate time
-        for(int index = 0; index < threadNumber; index++) {
-            RandomAccessFile readFile = null;
-            RandomAccessFile randomAccessFile = null;
-            try {
-                readFile = new RandomAccessFile(PRODUCE_FILENAME, "r");
-                randomAccessFile = new RandomAccessFile(filename, "rw");
-                randomAccessFile.setLength(length);
-            } catch (FileNotFoundException e) {
-                e.printStackTrace();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-            ReadAndWriteThread readThread = new ReadAndWriteThread(randomAccessFile, readFile);
-            executorService.execute(readThread);
-
-        }
-        executorService.shutdown();
-        try {
-            countDownLatch.await();
-        } catch (InterruptedException e) {
-            // TODO Auto-generated catch block
-            e.printStackTrace();
-        }
-        long e = System.currentTimeMillis();
-        System.out.println(Thread.currentThread().toString() + " Total Time: " +  (e - s) + " ms");
-    }
-
-
-
-    private long getFileLength() {
-        final File file = new File(PRODUCE_FILENAME);
-        if(!file.exists()) {
-            try {
-                file.createNewFile();
-            } catch (IOException e) {
-                e.printStackTrace();
-            }
-        }
-        return file.length();
-    }
 
     public static void main(String[] args) {
+        // write result to file
+        writeResult("mt_time.csv", "线程数,IO写入方法,时间/S\n", false);
+        writeResult("mt_size.csv", "IO写入方法,文件空间大小/MB\n", false);
+        // way first
         for (int i = 1; i <= 32; i *= 2 ) {
-            System.out.println("Thread num : " + threadNumber);
+            System.out.println("First Way Thread num : " + threadNumber);
             long start = System.currentTimeMillis();
             Producer producer = new Producer();
             producer.writeByBufferedRandom(PRODUCE_FILENAME);
@@ -103,9 +45,52 @@ public class MTWriter {
             System.out.println("    " + Thread.currentThread().toString() + " Write over: " +  (end - proEnd) + " ms");
             System.out.println("    " + Thread.currentThread().toString() + " Total Time: " +  (end - start) + " ms");
 
+            writeResult("mt_time.csv", threadNumber + "," + "BufferedRandom," + (end - start) / 1000.0 + "\n", true);
             threadNumber *= 2;
         }
+        System.out.println("    " + Thread.currentThread().toString() + " Total size: " +  getFileLength(WRITE_FILENAME) + " MB");
+        writeResult("mt_size.csv", "BufferedRandom," + getFileLength(WRITE_FILENAME) + "\n", true);
+        // second way
+        threadNumber = 1;
+        for (int i = 1; i <= 32; i *= 2 ) {
+            System.out.println("Second Way Thread num : " + threadNumber);
+            long start = System.currentTimeMillis();
+            Producer producer = new Producer();
+            producer.writeToFileByAnotherQueue(PRODUCE_FILENAME);
+            long proEnd = System.currentTimeMillis();
+            System.out.println("    " + Thread.currentThread().toString() + " Produce over: " +  (proEnd - start) + " ms");
+            MTWriter mtWriter = new MTWriter();
+            mtWriter.WriteAndReadData(WRITE_FILENAME);
+            long end = System.currentTimeMillis();
+            System.out.println("    " + Thread.currentThread().toString() + " Write over: " +  (end - proEnd) + " ms");
+            System.out.println("    " + Thread.currentThread().toString() + " Total Time: " +  (end - start) + " ms");
 
+            writeResult("mt_time.csv", threadNumber + "," + "Queue," + (end - start) / 1000.0 + "\n", true);
+            threadNumber *= 2;
+        }
+        System.out.println("    " + Thread.currentThread().toString() + " Total size: " +  getFileLength(WRITE_FILENAME) + " MB");
+        writeResult("mt_size.csv", "Queue," + getFileLength(WRITE_FILENAME) + "\n", true);
+
+        // third way
+        threadNumber = 1;
+        for (int i = 1; i <= 32; i *= 2 ) {
+            System.out.println("Third Way Thread num : " + threadNumber);
+            long start = System.currentTimeMillis();
+            Producer producer = new Producer();
+            producer.writeToFileByCompress(PRODUCE_FILENAME);
+            long proEnd = System.currentTimeMillis();
+            System.out.println("    " + Thread.currentThread().toString() + " Produce over: " +  (proEnd - start) + " ms");
+            MTWriter mtWriter = new MTWriter();
+            mtWriter.WriteAfterReadData(WRITE_FILENAME);
+            long end = System.currentTimeMillis();
+            System.out.println("    " + Thread.currentThread().toString() + " Write over: " +  (end - proEnd) + " ms");
+            System.out.println("    " + Thread.currentThread().toString() + " Total Time: " +  (end - start) + " ms");
+
+            writeResult("mt_time.csv", threadNumber + "," + "Compress," + (end - start) / 1000.0 + "\n", true);
+            threadNumber *= 2;
+        }
+        System.out.println("    " + Thread.currentThread().toString() + " Total size: " +  getFileLength(WRITE_FILENAME) + " MB");
+        writeResult("mt_size.csv", "Compress," + getFileLength(WRITE_FILENAME) + "\n", true);
 //        try {
 //            FileInputStream fileInputStream = new FileInputStream(new File("test"));
 //            BufferedInputStream bufferedInputStream = new BufferedInputStream(fileInputStream);
@@ -129,7 +114,28 @@ public class MTWriter {
 //            e.printStackTrace();
 //        }
     }
-    public void WriteAfterReadData(String filename) {
+    /**
+     *
+     * @param filename
+     * @return
+     */
+    public static double getFileLength(String filename) {
+        final File file = new File(filename);
+        if(!file.exists()) {
+            try {
+                file.createNewFile();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        return file.length() / 1024.0 / 1024.0;
+    }
+
+    /**
+     *
+     * @param filename
+     */
+    public void readAndWriteData(String filename) {
         final File file = new File(PRODUCE_FILENAME);
         if(!file.exists()) {
             try {
@@ -140,6 +146,104 @@ public class MTWriter {
         }
 
 
+        final File endFile = new File(filename);
+        if(!endFile.exists()) {
+            try {
+                endFile.createNewFile();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        long s = System.currentTimeMillis();
+        ExecutorService executorService = Executors.newFixedThreadPool(threadNumber);
+        // calculate time
+        for(int index = 0; index < threadNumber; index++) {
+            BufferedRandomAccessFile readFile = null;
+            BufferedRandomAccessFile randomAccessFile = null;
+            try {
+                readFile = new BufferedRandomAccessFile(PRODUCE_FILENAME, "r");
+                randomAccessFile = new BufferedRandomAccessFile(filename, "rw");
+                randomAccessFile.setLength(length);
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            ReadAndWriteThread readThread = new ReadAndWriteThread(randomAccessFile, readFile);
+            executorService.execute(readThread);
+
+        }
+        executorService.shutdown();
+        try {
+            countDownLatch.await();
+        } catch (InterruptedException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+        long e = System.currentTimeMillis();
+        System.out.println(Thread.currentThread().toString() + " Total Time: " +  (e - s) + " ms");
+    }
+
+
+    /**
+     * Get the length of file
+     * @return length
+     */
+    private long getFileLength() {
+        final File file = new File(PRODUCE_FILENAME);
+        if(!file.exists()) {
+            try {
+                file.createNewFile();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        return file.length();
+    }
+    /**
+     * Write result to file
+     * @param filename
+     * @param res
+     */
+    public static void writeResult(String filename, String res, boolean append) {
+        File file = new File(filename);
+        if (!file.exists()) {
+            try {
+                file.createNewFile();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        FileWriter fileWriter = null;
+        try {
+            fileWriter = new FileWriter(file, append);
+            fileWriter.append(res);
+        } catch (IOException e) {
+            e.printStackTrace();
+        }finally {
+            try {
+                fileWriter.close();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+
+    }
+
+    /**
+     *
+     * @param filename
+     */
+    public void WriteAfterReadData(String filename) {
+        final File file = new File(PRODUCE_FILENAME);
+        if(!file.exists()) {
+            try {
+                file.createNewFile();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
         final File endFile = new File(filename);
         if(!endFile.exists()) {
             try {
@@ -180,13 +284,63 @@ public class MTWriter {
     }
 
     /**
+     *
+     * @param filename
+     */
+    public void WriteAndReadData(String filename) {
+        final File file = new File(PRODUCE_FILENAME);
+        if(!file.exists()) {
+            try {
+                file.createNewFile();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+        final File endFile = new File(filename);
+        if(!endFile.exists()) {
+            try {
+                endFile.createNewFile();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+        }
+
+        Long totalSize = getFileLength();
+
+        ExecutorService executorService = Executors.newFixedThreadPool(threadNumber);
+        // calculate time
+        for(int index = 0; index < threadNumber; index++) {
+            BufferedRandomAccessFile readFile = null;
+            BufferedRandomAccessFile writeFile = null;
+            try {
+                readFile = new BufferedRandomAccessFile(PRODUCE_FILENAME, "r");
+                writeFile = new BufferedRandomAccessFile(filename, "rw", 10);
+                writeFile.setLength(totalSize);
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }
+            ReadAndWriteThread readThread = new ReadAndWriteThread(writeFile, readFile);
+            executorService.execute(readThread);
+
+        }
+        executorService.shutdown();
+        try {
+            countDownLatch.await();
+        } catch (InterruptedException e) {
+            // TODO Auto-generated catch block
+            e.printStackTrace();
+        }
+    }
+    /**
      * read and write thread
      */
     class ReadAndWriteThread extends Thread {
-        RandomAccessFile endFile;
-        RandomAccessFile randomAccessFile;
+        BufferedRandomAccessFile endFile;
+        BufferedRandomAccessFile randomAccessFile;
 
-        ReadAndWriteThread(RandomAccessFile endFile, RandomAccessFile randomAccessFile) {
+        ReadAndWriteThread(BufferedRandomAccessFile endFile, BufferedRandomAccessFile randomAccessFile) {
             this.endFile = endFile;
             this.randomAccessFile = randomAccessFile;
         }
@@ -233,7 +387,49 @@ public class MTWriter {
             super.run();
         }
     }
+    /**
+     * read and write thread
+     */
+    class NormalWriteAfterReadThread extends Thread {
+        RandomAccessFile writeFile;
+        RandomAccessFile readFile;
+        Long startPosition;
+        Long length;
 
+
+        NormalWriteAfterReadThread(RandomAccessFile writeFile, RandomAccessFile readFile,
+                             Long startPosition, Long length) {
+            this.writeFile = writeFile;
+            this.readFile = readFile;
+            this.startPosition = startPosition;
+            this.length = length;
+        }
+
+        @Override
+        public void run() {
+            try {
+                readFile.seek(startPosition);
+                // read data
+                writeFile.seek(startPosition);
+                // read data according to the file size
+                // write to file
+                for(int index = 0; index < length; index += READ_SIZE) {
+                    byte[] bytes = new byte[READ_SIZE];
+                    int len = readFile.read(bytes);
+                    writeFile.write(bytes, 0, len);
+                }
+                readFile.close();
+                writeFile.close();
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+            } finally {
+                countDownLatch.countDown();
+            }
+            super.run();
+        }
+    }
 
     /**
      * read and write thread
@@ -263,8 +459,8 @@ public class MTWriter {
                 // write to file
                 for(int index = 0; index < length; index += READ_SIZE) {
                     byte[] bytes = new byte[READ_SIZE];
-                    readFile.read(bytes);
-                    writeFile.write(bytes);
+                    int len = readFile.read(bytes);
+                    writeFile.write(bytes, 0, len);
                 }
                 readFile.close();
                 writeFile.close();

@@ -93,11 +93,108 @@ public class Producer {
         }
     }
 
+    /**
+     *
+     * @param filename
+     */
+    public void writeToFileByQueue(String filename) {
+        FileOutputStream fileOutputStream;
+        BufferedOutputStream bufferedOutputStream = null;
+        DataOutputStream dataOutputStream = null;
+        // how many data write to file one time.
+        byte[] numbers = new byte[TIMES * INT_SIZE * BLOCK_SIZE];
+        try {
+            try {
+                fileOutputStream = new FileOutputStream(new File(filename));
+                dataOutputStream = new DataOutputStream(fileOutputStream);
+                bufferedOutputStream = new BufferedOutputStream(dataOutputStream);
+
+                int dev = 0;
+                Long s = 0L;
+                for(int i = 1; i <= MAX_NUM; i++) {
+                    byte[] bytes = BytesUtils.intToByteArray(i);
+                    for( int j = 0; j < TIMES; j++) {
+                        System.arraycopy(bytes, 0, numbers, j * INT_SIZE + dev * INT_SIZE * BLOCK_SIZE, INT_SIZE);
+                    }
+                    dev++;
+                    if(i % BLOCK_SIZE == 0) {
+                        dev = 0;
+                        bufferedOutputStream.write(numbers);
+                        int len = numbers.length;
+                        // new task
+                        Task task = new Task(s, len);
+                        s += len;
+                        // add task to queue
+                        TaskQueue.getInstance().addTask(task);
+                    }
+                }
+                // end task
+                TaskQueue.getInstance().setProduceEnd(true);
+            } catch (FileNotFoundException e) {
+                e.printStackTrace();
+            } catch (IOException e) {
+                e.printStackTrace();
+            }finally {
+                bufferedOutputStream.flush();
+                bufferedOutputStream.close();
+            }
+        }catch (IOException e) {
+            System.out.println(e.getMessage());
+        }
+    }
+
+    /**
+     *
+     * @param filename
+     */
+    public void writeToFileByAnotherQueue(String filename) {
+        BufferedRandomAccessFile bufferedRandomAccessFile = null;
+        FileChannel fileChannel = null;
+        //byte[] numbers = new byte[TIMES * INT_SIZE];
+        try {
+            bufferedRandomAccessFile = new BufferedRandomAccessFile(filename, "rw", 10);
+            fileChannel = bufferedRandomAccessFile.getChannel();
+            MappedByteBuffer mbbo = fileChannel.map(FileChannel.MapMode.READ_WRITE, 0, MAX_NUM*TIMES*INT_SIZE);
+            Long s = 0L;
+            TaskQueue taskQueue = TaskQueue.getInstance();
+            for(int i = 1; i <= MAX_NUM; i++) {
+                // 一个int对应三位byte
+                byte one = (byte) ((i >> 16) & 0xFF);
+                byte two = (byte) ((i >> 8) & 0xFF);
+                byte three = (byte) (i & 0xFF);
+
+                //　这种复制方式比System.arraycopy快
+                for( int j = 0; j < TIMES; j++) {
+                    //　单个写更快
+                    mbbo.put(one);
+                    mbbo.put(two);
+                    mbbo.put(three);
+                }
+                if ( i % BLOCK_SIZE == 0) {
+                    int len = TIMES * 3;
+                    // new task
+                    Task task = new Task(s, len);
+                    s += len;
+                    // add task to queue
+                    taskQueue.addTask(task);
+                }
+            }
+            // end task
+            taskQueue.setProduceEnd(true);
+            fileChannel.close();
+            bufferedRandomAccessFile.close();
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+    }
+
     public static void main(String[] args) {
         long start = System.currentTimeMillis();
         Producer producer = new Producer();
         //producer.writeByBufferedOutput("test");
-        producer.writeByBufferedWrite(PRODUCE_FILENAME);
+        producer.writeToFileByAnotherQueue(PRODUCE_FILENAME);
         long end = System.currentTimeMillis();
         // print total time
         System.out.println("produce over ! total time: " +  (end - start) + " ms");

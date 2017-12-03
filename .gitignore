@@ -1,5 +1,14 @@
 # Created by .ignore support plugin (hsz.mobi)
 produce.bin
-write.bin
-test
-produce.zip
+write.
+mt_produce.dat
+mt_write.dat
+mt_size.csv
+mt_time.csv
+normal.dat
+out/
+produce.dat
+src/main/resources/
+target/classes/com/wzes/dc/consume/MTWriter$NormalWriteAfterReadThread.class
+target/generated-sources/
+write.dat
