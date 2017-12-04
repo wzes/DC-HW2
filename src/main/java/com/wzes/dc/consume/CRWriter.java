@@ -35,7 +35,7 @@ public class CRWriter {
         writeResult("cr_size.csv", "IO写入方法,文件空间大小/MB\n", false);
 
         cluster = Cluster.builder()
-                .addContactPoint("localhost")
+                .addContactPoint("148.100.92.158")
                 .withPort(4392)
                 .withClusterName("tongji01")
                 .withCredentials("user22", "1552730")

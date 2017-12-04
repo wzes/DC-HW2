@@ -24,7 +24,7 @@ public class HDWriter {
 
     private static int threadNumber = 1;
 
-    private final int READ_SIZE = 1024;
+    private final int READ_SIZE = 1024 * 8;
 
     private final CountDownLatch countDownLatch = new CountDownLatch(threadNumber);
 
@@ -180,6 +180,12 @@ public class HDWriter {
     public void writeToHDFS() throws IOException, InterruptedException {
         // get config
         Configuration config = new Configuration();
+        config.set("fs.hdfs.impl",
+                org.apache.hadoop.hdfs.DistributedFileSystem.class.getName()
+        );
+        config.set("fs.file.impl",
+                org.apache.hadoop.fs.LocalFileSystem.class.getName()
+        );
         // get file system
         FileSystem fileSystem = FileSystem.get(URI.create(OUT_PATH), config, "user22");
 
@@ -208,7 +214,7 @@ public class HDWriter {
             countDownLatch.await();
         } catch (InterruptedException e) {
             // TODO Auto-generated catch block
-            e.printStackTrace();
+            //e.printStackTrace();
         }
     }
 
@@ -273,9 +279,9 @@ public class HDWriter {
                 readFile.close();
                 writeFile.close();
             } catch (FileNotFoundException e) {
-                e.printStackTrace();
+                // e.printStackTrace();
             } catch (IOException e) {
-                e.printStackTrace();
+                // e.printStackTrace();
             } finally {
                 countDownLatch.countDown();
             }
@@ -286,6 +292,13 @@ public class HDWriter {
     public void writeToHDFSQueue() throws IOException, InterruptedException {
         // get config
         Configuration config = new Configuration();
+
+        config.set("fs.hdfs.impl",
+                org.apache.hadoop.hdfs.DistributedFileSystem.class.getName()
+        );
+        config.set("fs.file.impl",
+                org.apache.hadoop.fs.LocalFileSystem.class.getName()
+        );
         // get file system
         FileSystem fileSystem = FileSystem.get(URI.create(OUT_PATH), config, "user22");
 
@@ -362,17 +375,14 @@ public class HDWriter {
                                 writeFile.write(bytes, 0, len);
                             }
                         } catch (Exception e) {
-                            e.printStackTrace();
+                            // System.out.println();
                         }
-
                     }
                 }
                 randomAccessFile.close();
                 writeFile.close();
-            } catch (FileNotFoundException e) {
-                e.printStackTrace();
-            } catch (IOException e) {
-                e.printStackTrace();
+            } catch (Exception e) {
+                // e.printStackTrace();
             } finally {
                 countDownLatch.countDown();
             }
