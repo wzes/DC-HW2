@@ -6,18 +6,9 @@ import java.io.IOException;
 import java.io.FileNotFoundException;
 import java.util.ResourceBundle;
 
-/**
- * <p>Title: BufferedRandomAccessFile</p>
- * <p>Description: this class provide Buffered Read & Write by extend RandomAccessFile</p>
- * <p>Copyright: Copyright (c) 2002 Cui Zhixiang </p>
- * <p>Company: soho </p>
- * @author Cui Zhixiang
- * @version 1.0, 2002/10/12
- */
 
 public class BufferedRandomAccessFile extends RandomAccessFile {
 
-    static ResourceBundle res = ResourceBundle.getBundle("com.wzes.dc.util.Res");
     private static final int DEFAULT_BUFFER_BIT_LEN = 10;
     private static final int DEFAULT_BUFFER_SIZE = 1 << DEFAULT_BUFFER_BIT_LEN;
 
@@ -37,28 +28,9 @@ public class BufferedRandomAccessFile extends RandomAccessFile {
     protected String filename;
     protected long initfilelen;
 
-    public BufferedRandomAccessFile(String name) throws  IOException {
-        this(name, res.getString("r"), DEFAULT_BUFFER_BIT_LEN);
-    }
-
-    public BufferedRandomAccessFile(File file) throws IOException, FileNotFoundException {
-        this(file.getPath(), res.getString("r"), DEFAULT_BUFFER_BIT_LEN);
-    }
-
-    public BufferedRandomAccessFile(String name, int bufbitlen) throws  IOException {
-        this(name, res.getString("r"), bufbitlen);
-    }
-
-    public BufferedRandomAccessFile(File file, int bufbitlen) throws IOException, FileNotFoundException {
-        this(file.getPath(), res.getString("r"), bufbitlen);
-    }
 
     public BufferedRandomAccessFile(String name, String mode) throws IOException {
         this(name, mode, DEFAULT_BUFFER_BIT_LEN);
-    }
-
-    public BufferedRandomAccessFile(File file, String mode) throws IOException, FileNotFoundException {
-        this(file.getPath(), mode, DEFAULT_BUFFER_BIT_LEN);
     }
 
     public BufferedRandomAccessFile(String name, String mode, int bufbitlen) throws IOException  {
@@ -66,12 +38,9 @@ public class BufferedRandomAccessFile extends RandomAccessFile {
         this.init(name, mode, bufbitlen);
     }
 
-    public BufferedRandomAccessFile(File file, String mode, int bufbitlen) throws IOException, FileNotFoundException {
-        this(file.getPath(), mode, bufbitlen);
-    }
 
     private void init(String name, String mode, int bufbitlen) throws IOException {
-        if (mode.equals(res.getString("r")) == true) {
+        if (mode.equals("r")) {
             this.append = false;
         } else {
             this.append = true;
@@ -83,7 +52,7 @@ public class BufferedRandomAccessFile extends RandomAccessFile {
         this.curpos = super.getFilePointer();
 
         if (bufbitlen < 0) {
-            throw new IllegalArgumentException(res.getString("bufbitlen_size_must_0"));
+            throw new IllegalArgumentException("bufbitlen_size_must >= 0");
         }
 
         this.bufbitlen = bufbitlen;
@@ -262,61 +231,5 @@ public class BufferedRandomAccessFile extends RandomAccessFile {
     public void close() throws IOException {
         this.flushbuf();
         super.close();
-    }
-
-    public static void main(String[] args) throws IOException {
-        long readfilelen = 0;
-        BufferedRandomAccessFile brafReadFile, brafWriteFile;
-
-        brafReadFile = new BufferedRandomAccessFile("test");
-        readfilelen = brafReadFile.initfilelen;
-        brafWriteFile = new BufferedRandomAccessFile("test_out1.bin", "rw", 10);
-
-        byte buf[] = new byte[1024];
-        int readcount;
-
-        long start = System.currentTimeMillis();
-
-        while((readcount = brafReadFile.read(buf)) != -1) {
-            brafWriteFile.write(buf, 0, readcount);
-        }
-
-        brafWriteFile.close();
-        brafReadFile.close();
-
-        System.out.println("BufferedRandomAccessFile Copy & Write File: "
-                           + brafReadFile.filename
-                           + "    FileSize: "
-                           + Integer.toString((int)readfilelen >> 1024)
-                           + " (KB)    "
-                           + "Spend: "
-                           +(double)(System.currentTimeMillis()-start) / 1000
-                           + "(s)");
-
-        java.io.FileInputStream fdin = new java.io.FileInputStream("test");
-        java.io.BufferedInputStream bis = new java.io.BufferedInputStream(fdin, 1024);
-        java.io.DataInputStream dis = new java.io.DataInputStream(bis);
-
-        java.io.FileOutputStream fdout = new java.io.FileOutputStream("test_out2.bin");
-        java.io.BufferedOutputStream bos = new java.io.BufferedOutputStream(fdout, 1024);
-        java.io.DataOutputStream dos = new java.io.DataOutputStream(bos);
-
-        start = System.currentTimeMillis();
-
-        for (int i = 0; i < readfilelen; i++) {
-            dos.write(dis.readByte());
-        }
-
-        dos.close();
-        dis.close();
-
-        System.out.println("DataBufferedios Copy & Write File: "
-                           + brafReadFile.filename
-                           + "    FileSize: "
-                           + Integer.toString((int)readfilelen >> 1024)
-                           + " (KB)    "
-                           + "Spend: "
-                           + (double)(System.currentTimeMillis()-start) / 1000
-                           + "(s)");
     }
 }

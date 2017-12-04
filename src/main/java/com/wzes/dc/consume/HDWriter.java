@@ -20,7 +20,7 @@ import java.util.concurrent.Executors;
  */
 public class HDWriter {
     private static final String PRODUCE_FILENAME = "hd_produce.dat";
-    private static final String OUT_PATH = "hdfs://148.100.92.156:4000/user/user22/";
+    private static final String OUT_PATH = "hdfs://192.168.10.16:9000/tmp/";
 
     private static int threadNumber = 1;
 
@@ -74,10 +74,10 @@ public class HDWriter {
             System.out.println("    " + Thread.currentThread().toString() + " Total Time: " +  (end - start) + " ms");
 
             writeResult("hd_time.csv", threadNumber + "," + "LZ4 Compress Queue," + (end - start) / 1000.0 + "\n", true);
-            writeResult("hd_size.csv", "LZ4 Compress Queue," + getFileSize(PRODUCE_FILENAME) + "\n", true);
             threadNumber *= 2;
         }
-
+        System.out.println("    " + Thread.currentThread().toString() + " LZ4 Compress Queue: " +  getFileSize(PRODUCE_FILENAME) + " MB");
+        writeResult("hd_size.csv", "LZ4 Compress Queue," + getFileSize(PRODUCE_FILENAME) + "\n", true);
         // snappy compress queue
         threadNumber = 1;
         middle = 0L;
@@ -116,10 +116,10 @@ public class HDWriter {
             System.out.println("    " + Thread.currentThread().toString() + " Total Time: " +  (end - start) + " ms");
 
             writeResult("hd_time.csv", threadNumber + "," + "Snappy Compress Queue," + (end - start) / 1000.0 + "\n", true);
-            writeResult("hd_size.csv", "Snappy Compress Queue," + getFileSize(PRODUCE_FILENAME) + "\n", true);
             threadNumber *= 2;
         }
-
+        writeResult("hd_size.csv", "Snappy Compress Queue," + getFileSize(PRODUCE_FILENAME) + "\n", true);
+        System.out.println("    " + Thread.currentThread().toString() + " Snappy Compress Queue: " +  getFileSize(PRODUCE_FILENAME) + " MB");
         // normal
         threadNumber = 1;
         for (int i = 1; i <= 32; i *= 2 ) {
@@ -141,11 +141,11 @@ public class HDWriter {
             System.out.println("    " + Thread.currentThread().toString() + " Write over: " +  (end - middle) + " ms");
             System.out.println("    " + Thread.currentThread().toString() + " Total Time: " +  (end - start) + " ms");
 
-            writeResult("hd_time.csv", threadNumber + "," + "Normal," + (end - start) / 1000.0 + "\n", true);
-            writeResult("hd_size.csv", "Normal," + getFileSize(PRODUCE_FILENAME) + "\n", true);
+            writeResult("hd_time.csv", threadNumber + "," + "LZ4 Compress Normal," + (end - start) / 1000.0 + "\n", true);
             threadNumber *= 2;
         }
-
+        writeResult("hd_size.csv", "LZ4 Compress Normal," + getFileSize(PRODUCE_FILENAME) + "\n", true);
+        System.out.println("    " + Thread.currentThread().toString() + " LZ4 Compress Queue: " +  getFileSize(PRODUCE_FILENAME) + " MB");
     }
 
     /**

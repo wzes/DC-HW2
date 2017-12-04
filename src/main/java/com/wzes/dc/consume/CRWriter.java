@@ -12,8 +12,6 @@ import java.util.concurrent.CountDownLatch;
 import java.util.concurrent.ExecutorService;
 import java.util.concurrent.Executors;
 
-import static com.wzes.dc.produce.Producer.PRODUCE_FILENAME;
-import static com.wzes.dc.produce.Producer.getFileLength;
 
 /**
  * @author Create by xuantang
@@ -23,7 +21,7 @@ public class CRWriter {
     private static final String PRODUCE_FILENAME = "cr_produce.dat";
     private static int threadNumber = 1;
 
-    private final int READ_SIZE = 1024 * 8;
+    private final int READ_SIZE = 1024 * 128;
 
     private static Cluster cluster = null;
     private static Session session = null;
@@ -33,20 +31,41 @@ public class CRWriter {
     public static void main(String[] args) throws IOException, InterruptedException {
 
         // write result to file
-        writeResult("cr_time.csv", "线程数,IO写入方法,时间/S\n", false);
+        writeResult("cr_time.csv", "线程数,IO写入方法, 时间/S\n", false);
         writeResult("cr_size.csv", "IO写入方法,文件空间大小/MB\n", false);
 
         cluster = Cluster.builder()
-                .addContactPoint("148.100.92.156")
+                .addContactPoint("148.100.92.158")
                 .withPort(4392)
                 .withClusterName("tongji01")
                 .withCredentials("user22", "1552730")
                 .build();
         session = cluster.connect("keyspace_user22");
-
-        // queue insert
+        // MultiThread
+        threadNumber = 1;
         for (int i = 1; i <= 32; i *= 2 ) {
             System.out.println("First Way Thread num : " + threadNumber);
+            long start = System.currentTimeMillis();
+            // produce
+            Producer producer = new Producer();
+            producer.writeToFileByCompress(PRODUCE_FILENAME, "LZ4");
+            long proEnd = System.currentTimeMillis();
+            System.out.println("    " + Thread.currentThread().toString() + " Produce over: " +  (proEnd - start) + " ms");
+            CRWriter crWriter = new CRWriter();
+            crWriter.writeToCRNormal(session);
+            long end = System.currentTimeMillis();
+            System.out.println("    " + Thread.currentThread().toString() + " Write over: " +  (end - proEnd) + " ms");
+            System.out.println("    " + Thread.currentThread().toString() + " Total Time: " +  (end - start) + " ms");
+            writeResult("cr_time.csv", threadNumber + "," + "LZ4 Compress Normal," + (end - start) / 1000.0 + "\n", true);
+            threadNumber *= 2;
+        }
+        writeResult("cr_size.csv", "LZ4 Compress Normal," + getFileSize(PRODUCE_FILENAME) + "\n", true);
+        System.out.println("    " + Thread.currentThread().toString() + " LZ4 Compress Normal: " +  getFileSize(PRODUCE_FILENAME) + " MB");
+        // session = null;
+        threadNumber = 1;
+        // queue insert
+        for (int i = 1; i <= 32; i *= 2 ) {
+            System.out.println("Second Way Thread num : " + threadNumber);
             long start = System.currentTimeMillis();
 
             ExecutorService executorService = Executors.newFixedThreadPool(1);
@@ -80,14 +99,15 @@ public class CRWriter {
             System.out.println("    " + Thread.currentThread().toString() + " Total Time: " +  (end - start) + " ms");
 
             writeResult("cr_time.csv", threadNumber + "," + "LZ4 Compress Queue," + (end - start) / 1000.0 + "\n", true);
-            writeResult("cr_size.csv", "LZ4 Compress Queue," + getFileSize(PRODUCE_FILENAME) + "\n", true);
             threadNumber *= 2;
         }
+        writeResult("cr_size.csv", "LZ4 Compress Queue," + getFileSize(PRODUCE_FILENAME) + "\n", true);
+        System.out.println("    " + Thread.currentThread().toString() + " LZ4 Compress Queue: " +  getFileSize(PRODUCE_FILENAME) + " MB");
         // Snappy Compress
         threadNumber = 1;
         middle = 0L;
         for (int i = 1; i <= 32; i *= 2 ) {
-            System.out.println("Second Way Thread num : " + threadNumber);
+            System.out.println("Third Way Thread num : " + threadNumber);
             long start = System.currentTimeMillis();
 
             ExecutorService executorService = Executors.newFixedThreadPool(1);
@@ -121,29 +141,12 @@ public class CRWriter {
             System.out.println("    " + Thread.currentThread().toString() + " Total Time: " +  (end - start) + " ms");
 
             writeResult("cr_time.csv", threadNumber + "," + "Snappy Compress Queue," + (end - start) / 1000.0 + "\n", true);
-            writeResult("cr_size.csv", "Snappy Compress Queue," + getFileSize(PRODUCE_FILENAME) + "\n", true);
             threadNumber *= 2;
         }
-
-        // MultiThread
-        threadNumber = 1;
-        for (int i = 1; i <= 32; i *= 2 ) {
-            System.out.println("Third Way Thread num : " + threadNumber);
-            long start = System.currentTimeMillis();
-            // produce
-            Producer producer = new Producer();
-            producer.writeToFileByCompress(PRODUCE_FILENAME, "LZ4");
-            long proEnd = System.currentTimeMillis();
-            System.out.println("    " + Thread.currentThread().toString() + " Produce over: " +  (proEnd - start) + " ms");
-            CRWriter crWriter = new CRWriter();
-            crWriter.writeToCRNormal(session);
-            long end = System.currentTimeMillis();
-            System.out.println("    " + Thread.currentThread().toString() + " Write over: " +  (end - proEnd) + " ms");
-            System.out.println("    " + Thread.currentThread().toString() + " Total Time: " +  (end - start) + " ms");
-            threadNumber *= 2;
-            writeResult("cr_time.csv", threadNumber + "," + "LZ4 Compress," + (end - start) / 1000.0 + "\n", true);
-            writeResult("cr_size.csv", "LZ4 Compress," + getFileSize(PRODUCE_FILENAME) + "\n", true);
-        }
+        writeResult("cr_size.csv", "Snappy Compress Queue," + getFileSize(PRODUCE_FILENAME) + "\n", true);
+        System.out.println("    " + Thread.currentThread().toString() + " Snappy Compress Queue: " +  getFileSize(PRODUCE_FILENAME) + " MB");
+        session.close();
+        cluster.close();
     }
 
     /**
@@ -218,8 +221,8 @@ public class CRWriter {
 
         ExecutorService executorService = Executors.newFixedThreadPool(threadNumber);
 
-        Long totalSize = getFileLength(PRODUCE_FILENAME);
-        Long sliceSize = totalSize / threadNumber;
+        int totalSize = (int) getFileLength(PRODUCE_FILENAME);
+        int sliceSize = totalSize / threadNumber;
 
         // calculate time
         for(int index = 0; index < threadNumber; index++) {
@@ -250,18 +253,12 @@ public class CRWriter {
      * @throws InterruptedException
      */
     private void writeToCRQueue(Session session) throws IOException, InterruptedException {
-        ExecutorService executorService = Executors.newFixedThreadPool(threadNumber);
 
+        ExecutorService executorService = Executors.newFixedThreadPool(threadNumber);
         // calculate time
         for(int index = 0; index < threadNumber; index++) {
-            BufferedRandomAccessFile readFile = null;
 
-            try {
-                readFile = new BufferedRandomAccessFile(PRODUCE_FILENAME, "r");
-            } catch (FileNotFoundException e) {
-                e.printStackTrace();
-            }
-            WriteToCRQueueThread writeToCRThread = new WriteToCRQueueThread(session, readFile);
+            WriteToCRQueueThread writeToCRThread = new WriteToCRQueueThread(session, PRODUCE_FILENAME);
 
             executorService.execute(writeToCRThread);
         }
@@ -280,10 +277,10 @@ public class CRWriter {
     class WriteToCRNormalThread extends Thread {
         Session session;
         BufferedRandomAccessFile readFile;
-        Long startPosition;
-        Long length;
+        int startPosition;
+        int length;
         WriteToCRNormalThread(Session session, BufferedRandomAccessFile readFile,
-                             Long startPosition, Long length) {
+                             int startPosition, int length) {
             this.session = session;
             this.readFile = readFile;
             this.startPosition = startPosition;
@@ -301,13 +298,23 @@ public class CRWriter {
                 BatchStatement batch = new BatchStatement();
                 int i = 1;
                 for(int index = 0; index < length; index += READ_SIZE) {
-                    byte[] bytes = new byte[READ_SIZE];
+                    // get true len
+                    int tmpLen;
+                    if (length - index < READ_SIZE) {
+                        tmpLen = length - index;
+                    } else {
+                        tmpLen = READ_SIZE;
+                    }
+                    byte[] bytes = new byte[tmpLen];
                     int len = readFile.read(bytes);
-                    ByteBuffer byteBuffer = ByteBuffer.allocate(len);
-                    byteBuffer.put(bytes);
-                    BoundStatement bs = ps.bind(getIndex(), byteBuffer);
-                    byteBuffer.clear();
-                    batch.add(bs);
+                    if (len != -1) {
+                        ByteBuffer byteBuffer = ByteBuffer.allocate(len);
+                        byteBuffer.put(bytes);
+                        BoundStatement bs = ps.bind(getIndex(), byteBuffer);
+                        byteBuffer.clear();
+                        batch.add(bs);
+                    }
+
                     if (i % 10 == 0) {
                         session.execute(batch);
                         batch.clear();
@@ -337,13 +344,15 @@ public class CRWriter {
      */
     class WriteToCRQueueThread extends Thread {
         Session session;
+        String filename;
         BufferedRandomAccessFile readFile;
 
-        WriteToCRQueueThread(Session session, BufferedRandomAccessFile readFile) {
+        WriteToCRQueueThread(Session session, String filename) {
             this.session = session;
-            this.readFile = readFile;
+            this.filename = filename;
         }
 
+        private int len;
         @Override
         public void run() {
             try {
@@ -353,6 +362,9 @@ public class CRWriter {
                     }
                     Task task = TaskQueue.getInstance().getTask();
                     if(task != null) {
+                        if (readFile == null) {
+                            readFile = new BufferedRandomAccessFile(filename, "r");
+                        }
                         Long start = task.getStart();
                         int length = task.getLength();
                         readFile.seek(start);
@@ -370,13 +382,20 @@ public class CRWriter {
                                 tmpLen = READ_SIZE;
                             }
                             byte[] bytes = new byte[tmpLen];
-                            int len = readFile.read(bytes);
+                            //System.out.println(tmpLen);
+                            try {
+                                len = readFile.read(bytes, 0, tmpLen);
+                            } catch (Exception e) {
+                                //System.out.println(start + "+++++++++++++++++++" + tmpLen);
+                            }
+                            if (len != -1) {
+                                ByteBuffer byteBuffer = ByteBuffer.allocate(len);
+                                byteBuffer.put(bytes, 0, len);
+                                BoundStatement bs = ps.bind(getIndex(), byteBuffer);
+                                batch.add(bs);
+                                byteBuffer.clear();
+                            }
                             // write to cassandra
-                            ByteBuffer byteBuffer = ByteBuffer.allocate(len);
-                            byteBuffer.put(bytes);
-                            BoundStatement bs = ps.bind(getIndex(), byteBuffer);
-                            byteBuffer.clear();
-                            batch.add(bs);
                             if (i % 10 == 0) {
                                 session.execute(batch);
                                 batch.clear();
@@ -385,14 +404,14 @@ public class CRWriter {
                         }
                         session.execute(batch);
                         batch.clear();
-                        readFile.close();
                     }
                 }
-                // read data according to the file size
-                // write to file
+                if (readFile != null) {
+                    readFile.close();
+                }
             } catch (FileNotFoundException e) {
                 e.printStackTrace();
-            } catch (IOException e) {
+            } catch (Exception e) {
                 e.printStackTrace();
             } finally {
                 countDownLatch.countDown();

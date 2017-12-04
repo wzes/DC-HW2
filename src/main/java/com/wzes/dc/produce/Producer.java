@@ -28,7 +28,7 @@ public class Producer {
     /**
      * the size of writting to file everytime
      */
-    private static final int BLOCK_SIZE = 128;
+    private static final int BLOCK_SIZE = 256;
 
     private static final int MAX_NUM = 2014 * 512;
 
@@ -53,6 +53,8 @@ public class Producer {
      * @param filename the filename of des file
      */
     public void writeToFileByCompress(String filename, String cpType) {
+        createFile(filename);
+
         FileOutputStream fileOutputStream;
         BufferedOutputStream bufferedOutputStream = null;
         DataOutputStream dataOutputStream = null;
@@ -64,7 +66,6 @@ public class Producer {
                 dataOutputStream = new DataOutputStream(fileOutputStream);
                 bufferedOutputStream = new BufferedOutputStream(dataOutputStream);
                 // calculate time
-                // long start = System.currentTimeMillis();
                 int dev = 0;
                 // Long s = 0L;
                 for(int i = 1; i <= MAX_NUM; i++) {
@@ -117,6 +118,8 @@ public class Producer {
      * @param filename the filename of des file
      */
     public void writeToFileByCompressQueue(String filename, String cpType) {
+        createFile(filename);
+
         BufferedRandomAccessFile bufferedRandomAccessFile = null;
         FileChannel fileChannel = null;
         // how many data write to file one time.
@@ -125,11 +128,10 @@ public class Producer {
         try {
             bufferedRandomAccessFile = new BufferedRandomAccessFile(filename, "rw", 10);
             fileChannel = bufferedRandomAccessFile.getChannel();
-            MappedByteBuffer mbbo = fileChannel.map(FileChannel.MapMode.READ_WRITE, 0, MAX_NUM*TIMES*INT_SIZE);
             int dev = 0;
             Long s = 0L;
             int rec = 1;
-            int slice = 2014 * 512 / BLOCK_SIZE / 4;
+            int slice = 2014 * 512 / BLOCK_SIZE / 8;
             Long starPos = 0L;
             int tmpSize = 0;
             for (int i = 1; i <= MAX_NUM; i++) {
@@ -156,13 +158,17 @@ public class Producer {
 
                     assert compressData != null;
                     // write
-                    mbbo.put(compressData);
                     int len = compressData.length;
+                    MappedByteBuffer mbbo = fileChannel.map(FileChannel.MapMode.READ_WRITE, s, len);
+                    mbbo.put(compressData);
                     // new task
                     s += len;
                     tmpSize += len;
                     if (rec == slice) {
                         Task task = new Task(starPos, tmpSize);
+                        mbbo.force();
+//                        System.out.println(starPos + "----------------" + tmpSize + " ---------- " +
+//                                getFileLength("cr_produce.dat") / 1024.0 / 1024 + "MB");
                         starPos = s;
                         tmpSize = 0;
                         // add task to queue
@@ -189,6 +195,8 @@ public class Producer {
      * @param filename
      */
     public void writeToFileByQueue(String filename) {
+        createFile(filename);
+
         FileOutputStream fileOutputStream;
         BufferedOutputStream bufferedOutputStream = null;
         DataOutputStream dataOutputStream = null;
@@ -240,6 +248,8 @@ public class Producer {
      * @param filename
      */
     public void writeToFileByAnotherQueue(String filename) {
+        createFile(filename);
+
         BufferedRandomAccessFile bufferedRandomAccessFile = null;
         FileChannel fileChannel = null;
         //byte[] numbers = new byte[TIMES * INT_SIZE];
@@ -285,12 +295,23 @@ public class Producer {
     public static void main(String[] args) {
         long start = System.currentTimeMillis();
         Producer producer = new Producer();
-        producer.writeToFileByAnotherQueue(PRODUCE_FILENAME);
+        producer.writeByBufferedRandom("mt_produce.dat");
         long end = System.currentTimeMillis();
         // print total time
         System.out.println("produce over ! total time: " +  (end - start) + " ms");
     }
 
+    private void createFile(String filename) {
+//        try {
+//            File file = new File(filename);
+//            if (file.exists()) {
+//                file.delete();
+//            }
+//            file.createNewFile();
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
+    }
     /**
      *
      * @param filename
@@ -313,6 +334,8 @@ public class Producer {
      * @param filename
      */
     public void writeByBufferedOutput(String filename) {
+        createFile(filename);
+
         FileOutputStream fileOutputStream;
         BufferedOutputStream bufferedOutputStream = null;
         DataOutputStream dataOutputStream = null;
@@ -351,6 +374,8 @@ public class Producer {
      * @param filename
      */
     public void writeByBufferedRandom(String filename) {
+        createFile(filename);
+
         BufferedRandomAccessFile bufferedRandomAccessFile;
         FileChannel fileChannel;
         try {
@@ -358,7 +383,6 @@ public class Producer {
             fileChannel = bufferedRandomAccessFile.getChannel();
             MappedByteBuffer mbbo = fileChannel.map(FileChannel.MapMode.READ_WRITE, 0, MAX_NUM*TIMES*INT_SIZE);
             for(int i = 1; i <= MAX_NUM; i++) {
-
                 byte one = (byte) ((i >> 16) & 0xFF);
                 byte two = (byte) ((i >> 8) & 0xFF);
                 byte three = (byte) (i & 0xFF);
@@ -373,7 +397,6 @@ public class Producer {
             }
             fileChannel.close();
             bufferedRandomAccessFile.close();
-
         } catch (FileNotFoundException e) {
             e.printStackTrace();
         } catch (IOException e) {
@@ -386,6 +409,7 @@ public class Producer {
      * @param filename
      */
     public void writeByBufferedWrite(String filename) {
+        createFile(filename);
         OutputStreamWriter outputStreamWriter = null;
         BufferedWriter bufferedWriter = null;
         byte[] numbers = new byte[TIMES * INT_SIZE];

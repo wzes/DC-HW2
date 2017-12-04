@@ -20,3 +20,6 @@ src/test/
 target/classes/com/wzes/dc/consume/HDWriter$1.class
 target/classes/com/wzes/dc/consume/HDWriter$WriteToHDFSQueueThread.class
 target/classes/com/wzes/dc/consume/MTWriter$1.class
+cr_size.csv
+cr_time.csv
+target/generated-test-sources/
