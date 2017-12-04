@@ -3,14 +3,14 @@ package com.wzes.dc.produce;
 import com.wzes.dc.bean.Task;
 import com.wzes.dc.service.TaskQueue;
 import com.wzes.dc.util.BufferedRandomAccessFile;
-import com.wzes.dc.util.BytesUtils;
-import com.wzes.dc.util.GzipUtils;
-import org.apache.hadoop.io.compress.snappy.SnappyCompressor;
-import org.apache.hadoop.io.compress.snappy.SnappyDecompressor;
+import net.jpountz.lz4.LZ4Compressor;
+import net.jpountz.lz4.LZ4Factory;
+import org.xerial.snappy.Snappy;
 
 import java.io.*;
 import java.nio.MappedByteBuffer;
 import java.nio.channels.FileChannel;
+import java.util.zip.GZIPOutputStream;
 
 /**
  * @author Create by xuantang
@@ -41,10 +41,18 @@ public class Producer {
     }
 
     /**
+     * Compress
+     * @param filename
+     */
+    public void writeToFileByCompress(String filename) {
+
+        this.writeToFileByCompressQueue(filename, "SNAPPY");
+    }
+    /**
      * produce data and write it to file
      * @param filename the filename of des file
      */
-    public void writeToFileByCompress(String filename) {
+    public void writeToFileByCompress(String filename, String cpType) {
         FileOutputStream fileOutputStream;
         BufferedOutputStream bufferedOutputStream = null;
         DataOutputStream dataOutputStream = null;
@@ -60,7 +68,7 @@ public class Producer {
                 int dev = 0;
                 // Long s = 0L;
                 for(int i = 1; i <= MAX_NUM; i++) {
-                    byte[] bytes = BytesUtils.intToByteArray(i);
+                    byte[] bytes = BytesUtils.intToThreeByteArray(i);
                     for( int j = 0; j < TIMES; j++) {
                         System.arraycopy(bytes, 0, numbers, j * INT_SIZE + dev * INT_SIZE * BLOCK_SIZE, INT_SIZE);
                     }
@@ -68,7 +76,18 @@ public class Producer {
                     if(i % BLOCK_SIZE == 0) {
                         dev = 0;
                         // compress
-                        byte[] compressData = GzipUtils.compress(numbers);
+                        byte[] compressData;
+                        if (cpType.equals("SNAPPY")) {
+                            compressData = Snappy.compress(numbers);
+                        } else if (cpType.equals("GZIP")) {
+                            compressData = GzipUtils.compress(numbers);
+                        } else if (cpType.equals("LZ4")) {
+                            LZ4Factory lz4Factory = LZ4Factory.fastestInstance();
+                            LZ4Compressor lz4Compressor = lz4Factory.fastCompressor();
+                            compressData = lz4Compressor.compress(numbers);
+                        } else {
+                            compressData = null;
+                        }
                         bufferedOutputStream.write(compressData);
                     }
                 }
@@ -86,10 +105,18 @@ public class Producer {
     }
 
     /**
+     * Compress
+     * @param filename
+     */
+    public void writeToFileByCompressQueue(String filename) {
+
+        this.writeToFileByCompressQueue(filename, "SNAPPY");
+    }
+    /**
      * produce data and write it to file
      * @param filename the filename of des file
      */
-    public void writeToFileByCompressQueue(String filename) {
+    public void writeToFileByCompressQueue(String filename, String cpType) {
         BufferedRandomAccessFile bufferedRandomAccessFile = null;
         FileChannel fileChannel = null;
         // how many data write to file one time.
@@ -105,16 +132,28 @@ public class Producer {
             int slice = 2014 * 512 / BLOCK_SIZE / 4;
             Long starPos = 0L;
             int tmpSize = 0;
-            for(int i = 1; i <= MAX_NUM; i++) {
-                byte[] bytes = BytesUtils.intToByteArray(i);
-                for( int j = 0; j < TIMES; j++) {
+            for (int i = 1; i <= MAX_NUM; i++) {
+                byte[] bytes = BytesUtils.intToThreeByteArray(i);
+                for ( int j = 0; j < TIMES; j++) {
                     System.arraycopy(bytes, 0, numbers, j * INT_SIZE + dev * INT_SIZE * BLOCK_SIZE, INT_SIZE);
                 }
                 dev++;
-                if(i % BLOCK_SIZE == 0) {
+                if (i % BLOCK_SIZE == 0) {
                     dev = 0;
                     // compress
-                    byte[] compressData = GzipUtils.compress(numbers);
+                    byte[] compressData;
+                    if (cpType.equals("SNAPPY")) {
+                        compressData = Snappy.compress(numbers);
+                    } else if (cpType.equals("GZIP")) {
+                        compressData = GzipUtils.compress(numbers);
+                    } else if (cpType.equals("LZ4")) {
+                        LZ4Factory lz4Factory = LZ4Factory.fastestInstance();
+                        LZ4Compressor lz4Compressor = lz4Factory.fastCompressor();
+                        compressData = lz4Compressor.compress(numbers);
+                    } else {
+                        compressData = null;
+                    }
+
                     assert compressData != null;
                     // write
                     mbbo.put(compressData);
@@ -164,7 +203,7 @@ public class Producer {
                 int dev = 0;
                 Long s = 0L;
                 for(int i = 1; i <= MAX_NUM; i++) {
-                    byte[] bytes = BytesUtils.intToByteArray(i);
+                    byte[] bytes = BytesUtils.intToThreeByteArray(i);
                     for( int j = 0; j < TIMES; j++) {
                         System.arraycopy(bytes, 0, numbers, j * INT_SIZE + dev * INT_SIZE * BLOCK_SIZE, INT_SIZE);
                     }
@@ -246,13 +285,17 @@ public class Producer {
     public static void main(String[] args) {
         long start = System.currentTimeMillis();
         Producer producer = new Producer();
-        //producer.writeByBufferedOutput("test");
         producer.writeToFileByAnotherQueue(PRODUCE_FILENAME);
         long end = System.currentTimeMillis();
         // print total time
         System.out.println("produce over ! total time: " +  (end - start) + " ms");
     }
 
+    /**
+     *
+     * @param filename
+     * @return
+     */
     public static long getFileLength(String filename) {
         final File file = new File(filename);
         if(!file.exists()) {
@@ -265,6 +308,10 @@ public class Producer {
         return file.length();
     }
 
+    /**
+     * Normal write , slowly
+     * @param filename
+     */
     public void writeByBufferedOutput(String filename) {
         FileOutputStream fileOutputStream;
         BufferedOutputStream bufferedOutputStream = null;
@@ -304,50 +351,25 @@ public class Producer {
      * @param filename
      */
     public void writeByBufferedRandom(String filename) {
-        BufferedRandomAccessFile bufferedRandomAccessFile = null;
-        FileChannel fileChannel = null;
-        //byte[] numbers = new byte[TIMES * INT_SIZE];
+        BufferedRandomAccessFile bufferedRandomAccessFile;
+        FileChannel fileChannel;
         try {
             bufferedRandomAccessFile = new BufferedRandomAccessFile(filename, "rw", 10);
             fileChannel = bufferedRandomAccessFile.getChannel();
             MappedByteBuffer mbbo = fileChannel.map(FileChannel.MapMode.READ_WRITE, 0, MAX_NUM*TIMES*INT_SIZE);
             for(int i = 1; i <= MAX_NUM; i++) {
-                //　使用函数会变慢　
-                //byte[] bytes = BytesUtils.intToThreeByteArray(i);
-                // 一个int对应三位byte
+
                 byte one = (byte) ((i >> 16) & 0xFF);
                 byte two = (byte) ((i >> 8) & 0xFF);
                 byte three = (byte) (i & 0xFF);
 
                 //　这种复制方式比System.arraycopy快
                 for( int j = 0; j < TIMES; j++) {
-//                    numbers[j * INT_SIZE] = bytes[0];
-//                    numbers[j * INT_SIZE + 1] = bytes[1];
-//                    numbers[j * INT_SIZE + 2] = bytes[2];
                     //　单个写更快
                     mbbo.put(one);
                     mbbo.put(two);
                     mbbo.put(three);
-                    //bufferedRandomAccessFile.write(bytes);
-                    //　比较慢
-                    //System.arraycopy(bytes, 0, numbers, j * INT_SIZE, INT_SIZE);
                 }
-                //mbbo.put(bytes);
-//                byteBuffer.clear();
-//                byteBuffer.put(numbers);
-//                byteBuffer.flip();
-                //mbbo.put(byteBuffer);
-//                while(byteBuffer.hasRemaining()) {
-//                    fileChannel.write(byteBuffer);
-//                }
-
-//                byte buf[] = new byte[1024];
-//                int readcount;
-                //bufferedRandomAccessFile.write(numbers, 0, numbers.length);
-//                while((readcount = bufferedRandomAccessFile.read(buf)) != -1) {
-//                    bufferedRandomAccessFile.write(buf, 0, readcount);
-//                }
-
             }
             fileChannel.close();
             bufferedRandomAccessFile.close();
@@ -359,7 +381,10 @@ public class Producer {
         }
     }
 
-
+    /**
+     * the way is so slowly
+     * @param filename
+     */
     public void writeByBufferedWrite(String filename) {
         OutputStreamWriter outputStreamWriter = null;
         BufferedWriter bufferedWriter = null;
@@ -388,6 +413,45 @@ public class Producer {
             e.printStackTrace();
         } catch (IOException e) {
             e.printStackTrace();
+        }
+    }
+
+    /**
+     * Gzip
+     */
+    static class GzipUtils {
+        /**
+         *
+         * @param bytes
+         * @return
+         */
+        static byte[] compress(byte[] bytes) {
+            if (bytes.length == 0) {
+                return null;
+            }
+            ByteArrayOutputStream out = new ByteArrayOutputStream();
+            GZIPOutputStream gzip;
+            try {
+                gzip = new GZIPOutputStream(out);
+                gzip.write(bytes);
+                gzip.close();
+            } catch (IOException e) {
+
+            }
+            return out.toByteArray();
+        }
+    }
+
+    /**
+     * Byte
+     */
+    static class BytesUtils {
+        static byte[] intToThreeByteArray(int a) {
+            return new byte[] {
+                    (byte) ((a >> 16) & 0xFF),
+                    (byte) ((a >> 8) & 0xFF),
+                    (byte) (a & 0xFF)
+            };
         }
     }
 }

@@ -50,8 +50,8 @@ public class MTWriter {
             writeResult("mt_time.csv", threadNumber + "," + "BufferedRandom," + (end - start) / 1000.0 + "\n", true);
             threadNumber *= 2;
         }
-        System.out.println("    " + Thread.currentThread().toString() + " Total size: " +  getFileLength(WRITE_FILENAME) + " MB");
-        writeResult("mt_size.csv", "BufferedRandom," + getFileLength(WRITE_FILENAME) + "\n", true);
+        System.out.println("    " + Thread.currentThread().toString() + " Total size: " +  getFileSize(WRITE_FILENAME) + " MB");
+        writeResult("mt_size.csv", "BufferedRandom," + getFileSize(WRITE_FILENAME) + "\n", true);
         // second way
         threadNumber = 1;
         for (int i = 1; i <= 32; i *= 2 ) {
@@ -92,8 +92,8 @@ public class MTWriter {
             writeResult("mt_time.csv", threadNumber + "," + "Queue," + (end - start) / 1000.0 + "\n", true);
             threadNumber *= 2;
         }
-        System.out.println("    " + Thread.currentThread().toString() + " Total size: " +  getFileLength(WRITE_FILENAME) + " MB");
-        writeResult("mt_size.csv", "Queue," + getFileLength(WRITE_FILENAME) + "\n", true);
+        System.out.println("    " + Thread.currentThread().toString() + " Total size: " +  getFileSize(WRITE_FILENAME) + " MB");
+        writeResult("mt_size.csv", "Queue," + getFileSize(WRITE_FILENAME) + "\n", true);
 
         // third way
         threadNumber = 1;
@@ -101,7 +101,7 @@ public class MTWriter {
             System.out.println("Third Way Thread num : " + threadNumber);
             long start = System.currentTimeMillis();
             Producer producer = new Producer();
-            producer.writeToFileByCompress(PRODUCE_FILENAME);
+            producer.writeToFileByCompress(PRODUCE_FILENAME, "LZ4");
             long proEnd = System.currentTimeMillis();
             System.out.println("    " + Thread.currentThread().toString() + " Produce over: " +  (proEnd - start) + " ms");
             MTWriter mtWriter = new MTWriter();
@@ -110,40 +110,60 @@ public class MTWriter {
             System.out.println("    " + Thread.currentThread().toString() + " Write over: " +  (end - proEnd) + " ms");
             System.out.println("    " + Thread.currentThread().toString() + " Total Time: " +  (end - start) + " ms");
 
-            writeResult("mt_time.csv", threadNumber + "," + "Compress," + (end - start) / 1000.0 + "\n", true);
+            writeResult("mt_time.csv", threadNumber + "," + "LZ4 Compress," + (end - start) / 1000.0 + "\n", true);
             threadNumber *= 2;
         }
-        System.out.println("    " + Thread.currentThread().toString() + " Total size: " +  getFileLength(WRITE_FILENAME) + " MB");
-        writeResult("mt_size.csv", "Compress," + getFileLength(WRITE_FILENAME) + "\n", true);
-//        try {
-//            FileInputStream fileInputStream = new FileInputStream(new File("test"));
-//            BufferedInputStream bufferedInputStream = new BufferedInputStream(fileInputStream);
-//            byte[] bytes = new byte[4];
-//            int read;
-//            Long index = 1L;
-//            while(bufferedInputStream.read(bytes) != -1) {
-//                if(index%256 == 0) {
-//                    System.out.println(BytesUtils.byteArrayToInt(bytes));
-//                }
-//                index++;
-//                if(index > 256* 100) {
-//                    break;
-//                }
-//            }
-//
-//
-//        } catch (FileNotFoundException e) {
-//            e.printStackTrace();
-//        } catch (IOException e) {
-//            e.printStackTrace();
-//        }
+        System.out.println("    " + Thread.currentThread().toString() + " Total size: " +  getFileSize(WRITE_FILENAME) + " MB");
+        writeResult("mt_size.csv", "LZ4 Compress," + getFileSize(WRITE_FILENAME) + "\n", true);
+
+        // fourth way
+        threadNumber = 1;
+        for (int i = 1; i <= 32; i *= 2 ) {
+            System.out.println("Third Way Thread num : " + threadNumber);
+            long start = System.currentTimeMillis();
+            Producer producer = new Producer();
+            producer.writeToFileByCompress(PRODUCE_FILENAME, "SNAPPY");
+            long proEnd = System.currentTimeMillis();
+            System.out.println("    " + Thread.currentThread().toString() + " Produce over: " +  (proEnd - start) + " ms");
+            MTWriter mtWriter = new MTWriter();
+            mtWriter.WriteAfterReadData(WRITE_FILENAME);
+            long end = System.currentTimeMillis();
+            System.out.println("    " + Thread.currentThread().toString() + " Write over: " +  (end - proEnd) + " ms");
+            System.out.println("    " + Thread.currentThread().toString() + " Total Time: " +  (end - start) + " ms");
+
+            writeResult("mt_time.csv", threadNumber + "," + "Snappy Compress," + (end - start) / 1000.0 + "\n", true);
+            threadNumber *= 2;
+        }
+        System.out.println("    " + Thread.currentThread().toString() + " Total size: " +  getFileSize(WRITE_FILENAME) + " MB");
+        writeResult("mt_size.csv", "Snappy Compress," + getFileSize(WRITE_FILENAME) + "\n", true);
+
+        // fifth way
+        threadNumber = 1;
+        for (int i = 1; i <= 32; i *= 2 ) {
+            System.out.println("Third Way Thread num : " + threadNumber);
+            long start = System.currentTimeMillis();
+            Producer producer = new Producer();
+            producer.writeToFileByCompress(PRODUCE_FILENAME, "GZIP");
+            long proEnd = System.currentTimeMillis();
+            System.out.println("    " + Thread.currentThread().toString() + " Produce over: " +  (proEnd - start) + " ms");
+            MTWriter mtWriter = new MTWriter();
+            mtWriter.WriteAfterReadData(WRITE_FILENAME);
+            long end = System.currentTimeMillis();
+            System.out.println("    " + Thread.currentThread().toString() + " Write over: " +  (end - proEnd) + " ms");
+            System.out.println("    " + Thread.currentThread().toString() + " Total Time: " +  (end - start) + " ms");
+
+            writeResult("mt_time.csv", threadNumber + "," + "Gzip Compress," + (end - start) / 1000.0 + "\n", true);
+            threadNumber *= 2;
+        }
+        System.out.println("    " + Thread.currentThread().toString() + " Total size: " +  getFileSize(WRITE_FILENAME) + " MB");
+        writeResult("mt_size.csv", "Gzip Compress," + getFileSize(WRITE_FILENAME) + "\n", true);
     }
     /**
      *
      * @param filename
      * @return
      */
-    public static double getFileLength(String filename) {
+    public static double getFileSize(String filename) {
         final File file = new File(filename);
         if(!file.exists()) {
             try {

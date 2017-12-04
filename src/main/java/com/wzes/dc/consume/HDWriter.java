@@ -19,7 +19,7 @@ import java.util.concurrent.Executors;
  * @date on 11/19/17
  */
 public class HDWriter {
-    public static final String PRODUCE_FILENAME = "hd_produce.dat";
+    private static final String PRODUCE_FILENAME = "hd_produce.dat";
     private static final String OUT_PATH = "hdfs://148.100.92.156:4000/user/user22/";
 
     private static int threadNumber = 1;
@@ -30,12 +30,15 @@ public class HDWriter {
 
 
     private static long middle = 0L;
+
     public static void main(String[] args) throws IOException, InterruptedException {
         // write result to file
         writeResult("hd_time.csv", "线程数,IO写入方法,时间/S\n", false);
         writeResult("hd_size.csv", "IO写入方法,文件空间大小/MB\n", false);
 
-        // queue
+        // lz4 compress queue
+        threadNumber = 1;
+        middle = 0L;
         for (int i = 1; i <= 32; i *= 2 ) {
             System.out.println("First Way Thread num : " + threadNumber);
             long start = System.currentTimeMillis();
@@ -48,7 +51,7 @@ public class HDWriter {
                 public void run() {
                     // produce
                     Producer producer = new Producer();
-                    producer.writeToFileByCompressQueue(PRODUCE_FILENAME);
+                    producer.writeToFileByCompressQueue(PRODUCE_FILENAME, "LZ4");
                     middle = System.currentTimeMillis();
                     countDown.countDown();
                 }
@@ -70,18 +73,61 @@ public class HDWriter {
             System.out.println("    " + Thread.currentThread().toString() + " Write over: " +  (end - middle) + " ms");
             System.out.println("    " + Thread.currentThread().toString() + " Total Time: " +  (end - start) + " ms");
 
-            writeResult("hd_time.csv", threadNumber + "," + "Queue," + (end - start) / 1000.0 + "\n", true);
-            writeResult("hd_size.csv", "Queue," + getFileSize(PRODUCE_FILENAME) + "\n", true);
+            writeResult("hd_time.csv", threadNumber + "," + "LZ4 Compress Queue," + (end - start) / 1000.0 + "\n", true);
+            writeResult("hd_size.csv", "LZ4 Compress Queue," + getFileSize(PRODUCE_FILENAME) + "\n", true);
             threadNumber *= 2;
         }
-        // normal
+
+        // snappy compress queue
         threadNumber = 1;
+        middle = 0L;
         for (int i = 1; i <= 32; i *= 2 ) {
             System.out.println("Second Way Thread num : " + threadNumber);
             long start = System.currentTimeMillis();
 
+            ExecutorService executorService = Executors.newFixedThreadPool(1);
+            final CountDownLatch countDown = new CountDownLatch(1);
+            // create new thread
+            executorService.execute(new Runnable() {
+                @Override
+                public void run() {
+                    // produce
+                    Producer producer = new Producer();
+                    producer.writeToFileByCompressQueue(PRODUCE_FILENAME, "SNAPPY");
+                    middle = System.currentTimeMillis();
+                    countDown.countDown();
+                }
+            });
+            TaskQueue.getInstance().setProduceEnd(false);
+            HDWriter hdWriter = new HDWriter();
+            hdWriter.writeToHDFSQueue();
+
+            executorService.shutdown();
+            try {
+                countDown.await();
+            } catch (InterruptedException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+
+            System.out.println("    " + Thread.currentThread().toString() + " Produce over: " +  (middle - start) + " ms");
+            long end = System.currentTimeMillis();
+            System.out.println("    " + Thread.currentThread().toString() + " Write over: " +  (end - middle) + " ms");
+            System.out.println("    " + Thread.currentThread().toString() + " Total Time: " +  (end - start) + " ms");
+
+            writeResult("hd_time.csv", threadNumber + "," + "Snappy Compress Queue," + (end - start) / 1000.0 + "\n", true);
+            writeResult("hd_size.csv", "Snappy Compress Queue," + getFileSize(PRODUCE_FILENAME) + "\n", true);
+            threadNumber *= 2;
+        }
+
+        // normal
+        threadNumber = 1;
+        for (int i = 1; i <= 32; i *= 2 ) {
+            System.out.println("Third Way Thread num : " + threadNumber);
+            long start = System.currentTimeMillis();
+
             Producer producer = new Producer();
-            producer.writeToFileByCompress(PRODUCE_FILENAME);
+            producer.writeToFileByCompress(PRODUCE_FILENAME, "LZ4");
 
             middle = System.currentTimeMillis();
 
