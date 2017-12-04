@@ -5,6 +5,8 @@ import com.wzes.dc.service.TaskQueue;
 import com.wzes.dc.util.BufferedRandomAccessFile;
 import com.wzes.dc.util.BytesUtils;
 import com.wzes.dc.util.GzipUtils;
+import org.apache.hadoop.io.compress.snappy.SnappyCompressor;
+import org.apache.hadoop.io.compress.snappy.SnappyDecompressor;
 
 import java.io.*;
 import java.nio.MappedByteBuffer;
@@ -97,7 +99,6 @@ public class Producer {
             bufferedRandomAccessFile = new BufferedRandomAccessFile(filename, "rw", 10);
             fileChannel = bufferedRandomAccessFile.getChannel();
             MappedByteBuffer mbbo = fileChannel.map(FileChannel.MapMode.READ_WRITE, 0, MAX_NUM*TIMES*INT_SIZE);
-
             int dev = 0;
             Long s = 0L;
             int rec = 1;
