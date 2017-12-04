@@ -20,7 +20,7 @@ import java.util.concurrent.Executors;
  */
 public class HDWriter {
     private static final String PRODUCE_FILENAME = "hd_produce.dat";
-    private static final String OUT_PATH = "hdfs://192.168.10.16:9000/tmp/";
+    private static final String OUT_PATH = "hdfs://localhost:4000/user/user22/";
 
     private static int threadNumber = 1;
 
