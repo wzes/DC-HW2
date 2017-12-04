@@ -160,10 +160,10 @@ public class CRWriter {
                 readFile.seek(startPosition);
                 // read data according to the file size
                 // write to file
-
                 PreparedStatement ps = session
                         .prepare("insert into number(id, data) values(?, ?)");
                 BatchStatement batch = new BatchStatement();
+                int i = 1;
                 for(int index = 0; index < length; index += READ_SIZE) {
                     byte[] bytes = new byte[READ_SIZE];
                     int len = readFile.read(bytes);
@@ -172,13 +172,16 @@ public class CRWriter {
                     BoundStatement bs = ps.bind(getIndex(), byteBuffer);
                     byteBuffer.clear();
                     batch.add(bs);
-//                    if (index % 10 == 9) {
-//                        session.execute(batch);
-//                        batch.clear();
-//                    }\
-                    session.execute(batch);
-                    batch.clear();
+                    if (i % 10 == 0) {
+                        session.execute(batch);
+                        batch.clear();
+                    }
+                    i++;
+//                    session.execute(batch);
+//                    batch.clear();
                 }
+                session.execute(batch);
+                batch.clear();
                 readFile.close();
             } catch (FileNotFoundException e) {
                 e.printStackTrace();
@@ -191,7 +194,7 @@ public class CRWriter {
         }
     }
     private static int count = 0;
-    synchronized int getIndex() {
+    private synchronized int getIndex() {
         return count++;
     }
 }

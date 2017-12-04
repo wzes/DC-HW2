@@ -1,5 +1,6 @@
 package com.wzes.dc;
 
+import com.wzes.dc.util.BytesUtils;
 import com.wzes.dc.util.GzipUtils;
 
 import java.io.*;
@@ -51,35 +52,35 @@ public class TestApplication {
 //            }
 //
 //        }
-        File inFile = new File("/d1/input/slide.db");
-        File outFile = new File("/d1/input/slide.zip");
-        try {
-            FileInputStream fileInputStream = new FileInputStream(inFile);
-            BufferedInputStream bufferedInputStream = new BufferedInputStream(fileInputStream);
-
-            int len = fileInputStream.available();
-            byte[] conent = new byte[len];
-            byte[] buf = new byte[1024];
-            int count;
-            int index = 0;
-            while ((count = bufferedInputStream.read(buf)) != -1) {
-                System.arraycopy(buf, 0, conent, index*1024, count);
-                index++;
-            }
-            byte[] compress = GzipUtils.compress(conent);
-
-            BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(new FileOutputStream(outFile));
-
-            assert compress != null;
-            bufferedOutputStream.write(compress);
-
-            bufferedOutputStream.close();
-            bufferedInputStream.close();
-        } catch (FileNotFoundException e) {
-            e.printStackTrace();
-        } catch (IOException e) {
-            e.printStackTrace();
-        }
+//        File inFile = new File("/d1/input/slide.db");
+//        File outFile = new File("/d1/input/slide.zip");
+//        try {
+//            FileInputStream fileInputStream = new FileInputStream(inFile);
+//            BufferedInputStream bufferedInputStream = new BufferedInputStream(fileInputStream);
+//
+//            int len = fileInputStream.available();
+//            byte[] conent = new byte[len];
+//            byte[] buf = new byte[1024];
+//            int count;
+//            int index = 0;
+//            while ((count = bufferedInputStream.read(buf)) != -1) {
+//                System.arraycopy(buf, 0, conent, index*1024, count);
+//                index++;
+//            }
+//            byte[] compress = GzipUtils.compress(conent);
+//
+//            BufferedOutputStream bufferedOutputStream = new BufferedOutputStream(new FileOutputStream(outFile));
+//
+//            assert compress != null;
+//            bufferedOutputStream.write(compress);
+//
+//            bufferedOutputStream.close();
+//            bufferedInputStream.close();
+//        } catch (FileNotFoundException e) {
+//            e.printStackTrace();
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
 //      File file = new File("iframe.html");
 
 //        String url_path = "http://www.sse.com.cn/assortment/stock/list/share/";
@@ -121,6 +122,30 @@ public class TestApplication {
 //        } catch (IOException e) {
 //            e.printStackTrace();
 //        }
+//        try {
+//            FileInputStream fileInputStream = new FileInputStream(new File("mt_write.dat"));
+//            BufferedInputStream bufferedInputStream = new BufferedInputStream(fileInputStream);
+//            byte[] bytes = new byte[3];
+//            Long index = 1L;
+//            while(bufferedInputStream.read(bytes) != -1) {
+//                if(index%256 == 0) {
+//                    System.out.println(BytesUtils.threeByteArrayToInt(bytes));
+//                }
+//                index++;
+//                if(index > 256* 100) {
+//                    break;
+//                }
+//            }
+//
+//
+//        } catch (FileNotFoundException e) {
+//            e.printStackTrace();
+//        } catch (IOException e) {
+//            e.printStackTrace();
+//        }
+
+        System.out.println((1036288 - 777216) / 128);
+
     }
 
     public static String replaceAll(String urlPath, String xml) {

@@ -19,13 +19,17 @@ public class TaskQueue {
 
     private static boolean produceEnd = false;
 
+    public Queue<Task> getQueue() {
+        return queue;
+    }
+
     private Queue<Task> queue;
 
     private TaskQueue() {
         queue = new LinkedList<Task>();
     }
 
-    public static TaskQueue getInstance() {
+    public static synchronized TaskQueue getInstance() {
         if(null == taskQueue) {
             taskQueue = new TaskQueue();
         }

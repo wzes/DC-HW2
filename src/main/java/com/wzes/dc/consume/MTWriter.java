@@ -27,6 +27,8 @@ public class MTWriter {
     }
 
 
+    private static long middle = 0L;
+
     public static void main(String[] args) {
         // write result to file
         writeResult("mt_time.csv", "线程数,IO写入方法,时间/S\n", false);
@@ -55,14 +57,36 @@ public class MTWriter {
         for (int i = 1; i <= 32; i *= 2 ) {
             System.out.println("Second Way Thread num : " + threadNumber);
             long start = System.currentTimeMillis();
-            Producer producer = new Producer();
-            producer.writeToFileByAnotherQueue(PRODUCE_FILENAME);
-            long proEnd = System.currentTimeMillis();
-            System.out.println("    " + Thread.currentThread().toString() + " Produce over: " +  (proEnd - start) + " ms");
+
+
+            ExecutorService executorService = Executors.newFixedThreadPool(1);
+            final CountDownLatch countDown = new CountDownLatch(1);
+
+            // create new thread
+            executorService.execute(new Runnable() {
+                @Override
+                public void run() {
+                    Producer producer = new Producer();
+                    producer.writeToFileByAnotherQueue(PRODUCE_FILENAME);
+                    middle = System.currentTimeMillis();
+                    countDown.countDown();
+                }
+            });
+            TaskQueue.getInstance().setProduceEnd(false);
             MTWriter mtWriter = new MTWriter();
             mtWriter.WriteAndReadData(WRITE_FILENAME);
+
+            executorService.shutdown();
+            try {
+                countDown.await();
+            } catch (InterruptedException e) {
+                // TODO Auto-generated catch block
+                e.printStackTrace();
+            }
+
+            System.out.println("    " + Thread.currentThread().toString() + " Produce over: " +  (middle - start) + " ms");
             long end = System.currentTimeMillis();
-            System.out.println("    " + Thread.currentThread().toString() + " Write over: " +  (end - proEnd) + " ms");
+            System.out.println("    " + Thread.currentThread().toString() + " Write over: " +  (end - middle) + " ms");
             System.out.println("    " + Thread.currentThread().toString() + " Total Time: " +  (end - start) + " ms");
 
             writeResult("mt_time.csv", threadNumber + "," + "Queue," + (end - start) / 1000.0 + "\n", true);
@@ -349,7 +373,7 @@ public class MTWriter {
         public void run() {
             try {
                 while (true) {
-                    if(TaskQueue.getInstance().isQueueEmpty() && TaskQueue.getInstance().isProduceEnd()) {
+                    if(TaskQueue.getInstance().isProduceEnd()) {
                         break;
                     }
                     Task task = TaskQueue.getInstance().getTask();
@@ -365,13 +389,13 @@ public class MTWriter {
                             // write to file
                             for(int index = 0; index < length; index += READ_SIZE) {
                                 byte[] bytes = new byte[READ_SIZE];
-                                randomAccessFile.read(bytes);
-                                endFile.write(bytes);
+                                int len = randomAccessFile.read(bytes);
+                                endFile.write(bytes, 0, len);
                             }
                         }else {
                             byte[] bytes = new byte[length];
-                            randomAccessFile.read(bytes);
-                            endFile.write(bytes);
+                            int len = randomAccessFile.read(bytes);
+                            endFile.write(bytes, 0, len);
                         }
                     }
                 }

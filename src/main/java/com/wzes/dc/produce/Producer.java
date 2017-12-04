@@ -68,18 +68,8 @@ public class Producer {
                         // compress
                         byte[] compressData = GzipUtils.compress(numbers);
                         bufferedOutputStream.write(compressData);
-                        //int len = compressData.length;
-                        // new task
-                        // Task task = new Task(s, len);
-                        // s += len;
-                        // add task to queue
-                        // TaskQueue.getInstance().addTask(task);
                     }
                 }
-                // TaskQueue.getInstance().setProduceEnd(true);
-                // long end = System.currentTimeMillis();
-                // print total time
-                // System.out.println("produce over ! total time: " +  (end - start) + " ms");
             } catch (FileNotFoundException e) {
                 e.printStackTrace();
             } catch (IOException e) {
@@ -91,6 +81,67 @@ public class Producer {
         }catch (IOException e) {
             System.out.println(e.getMessage());
         }
+    }
+
+    /**
+     * produce data and write it to file
+     * @param filename the filename of des file
+     */
+    public void writeToFileByCompressQueue(String filename) {
+        BufferedRandomAccessFile bufferedRandomAccessFile = null;
+        FileChannel fileChannel = null;
+        // how many data write to file one time.
+        byte[] numbers = new byte[TIMES * INT_SIZE * BLOCK_SIZE];
+
+        try {
+            bufferedRandomAccessFile = new BufferedRandomAccessFile(filename, "rw", 10);
+            fileChannel = bufferedRandomAccessFile.getChannel();
+            MappedByteBuffer mbbo = fileChannel.map(FileChannel.MapMode.READ_WRITE, 0, MAX_NUM*TIMES*INT_SIZE);
+
+            int dev = 0;
+            Long s = 0L;
+            int rec = 1;
+            int slice = 2014 * 512 / BLOCK_SIZE / 4;
+            Long starPos = 0L;
+            int tmpSize = 0;
+            for(int i = 1; i <= MAX_NUM; i++) {
+                byte[] bytes = BytesUtils.intToByteArray(i);
+                for( int j = 0; j < TIMES; j++) {
+                    System.arraycopy(bytes, 0, numbers, j * INT_SIZE + dev * INT_SIZE * BLOCK_SIZE, INT_SIZE);
+                }
+                dev++;
+                if(i % BLOCK_SIZE == 0) {
+                    dev = 0;
+                    // compress
+                    byte[] compressData = GzipUtils.compress(numbers);
+                    assert compressData != null;
+                    // write
+                    mbbo.put(compressData);
+                    int len = compressData.length;
+                    // new task
+                    s += len;
+                    tmpSize += len;
+                    if (rec == slice) {
+                        Task task = new Task(starPos, tmpSize);
+                        starPos = s;
+                        tmpSize = 0;
+                        // add task to queue
+                        TaskQueue.getInstance().addTask(task);
+                        rec = 1;
+                    } else {
+                        rec++;
+                    }
+                }
+            }
+            TaskQueue.getInstance().setProduceEnd(true);
+            fileChannel.close();
+            bufferedRandomAccessFile.close();
+        } catch (FileNotFoundException e) {
+            e.printStackTrace();
+        } catch (IOException e) {
+            e.printStackTrace();
+        }
+
     }
 
     /**
@@ -130,6 +181,7 @@ public class Producer {
                 }
                 // end task
                 TaskQueue.getInstance().setProduceEnd(true);
+
             } catch (FileNotFoundException e) {
                 e.printStackTrace();
             } catch (IOException e) {
@@ -171,7 +223,7 @@ public class Producer {
                     mbbo.put(three);
                 }
                 if ( i % BLOCK_SIZE == 0) {
-                    int len = TIMES * 3;
+                    int len = TIMES * 3 * BLOCK_SIZE;
                     // new task
                     Task task = new Task(s, len);
                     s += len;

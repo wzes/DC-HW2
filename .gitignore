@@ -5,6 +5,9 @@ mt_produce.dat
 mt_write.dat
 mt_size.csv
 mt_time.csv
+hd_size.csv
+hd_time.csv
+hd_produce.dat
 normal.dat
 out/
 produce.dat
@@ -12,3 +15,8 @@ src/main/resources/
 target/classes/com/wzes/dc/consume/MTWriter$NormalWriteAfterReadThread.class
 target/generated-sources/
 write.dat
+cr_produce.dat
+src/test/
+target/classes/com/wzes/dc/consume/HDWriter$1.class
+target/classes/com/wzes/dc/consume/HDWriter$WriteToHDFSQueueThread.class
+target/classes/com/wzes/dc/consume/MTWriter$1.class
