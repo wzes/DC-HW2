@@ -70,9 +70,12 @@ data blob
 
 
 注意事项：
-　　本次实验是在先写入本地文件系统的条件下进行文件读写再写入其他文件系统，由于输出较多，另外加上空间限制，同一题目的文件会覆盖。程序的计时已在程序当中写好，会在控制台输出。上述图标在本机上测试所得。该程序引入第三方压缩包，还有工具类TaskQueue.java Task.java BufferedRandomAccessFile.java 除了jar包（附pom.xml) 考虑到打包麻烦，附上已打包好的jar包，运行方式为：
-　　1. java -cp 1552730-hk2.jar com.wzes.dc.consume.MTWriter
-　　2. java -cp 1552730-hk2.jar com.wzes.dc.consume.HDWriter
-　　3. java -cp 1552730-hk2.jar com.wzes.dc.consume.CRWriter
+- １、本次实验是在先写入本地文件系统的条件下进行文件读写再写入其他文件系统，由于输出较多，另外加上空间限制，同一题目的文件会覆盖。
+- ２、程序的计时已在程序当中写好，会在控制台输出。上述图标在本机上测试所得。
+- ３、提交的代码保留源程序包格式，包括题中要求的四个.java文件，以及其他辅助类。
+- ４、该程序引入第三方压缩包，还有工具类TaskQueue.java Task.java BufferedRandomAccessFile.java 除了jar包（附pom.xml) 考虑到打包麻烦，附上已打包好的jar包，运行方式为：
+    - 1). java -cp 1552730-hk2.jar com.wzes.dc.consume.MTWriter
+    - 2). java -cp 1552730-hk2.jar com.wzes.dc.consume.HDWriter
+    - 3). java -cp 1552730-hk2.jar com.wzes.dc.consume.CRWriter
 控制台输出为样例：
 ![时间折线图](image/7.png  "javaio")
